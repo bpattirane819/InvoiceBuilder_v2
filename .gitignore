@@ -1,0 +1,18 @@
+# Visual Studio
+.vs/
+*.user
+
+# Build output
+bin/
+obj/
+
+# NuGet
+*.nupkg
+packages/
+
+# Secrets / local config
+appsettings.local.json
+
+# OS
+Thumbs.db
+.DS_Store
