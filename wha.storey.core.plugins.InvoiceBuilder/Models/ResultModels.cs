@@ -12,7 +12,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
     public sealed class DedupResult
     {
-        public int InvoicesDeleted  { get; set; }
-        public int LineItemsDeleted { get; set; }
+        public int    InvoicesDeleted        { get; set; }
+        public int    LineItemsDeleted       { get; set; }
+        public string PreservedInvoiceNumber { get; set; }
     }
 }

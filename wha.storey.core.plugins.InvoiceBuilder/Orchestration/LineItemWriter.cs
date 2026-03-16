@@ -80,7 +80,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         {
             var qe = new QueryExpression(WHa_Invoice.EntityLogicalName)
             {
-                ColumnSet = new ColumnSet(WHa_Invoice.Fields.wha_InvoiceId)
+                ColumnSet = new ColumnSet(WHa_Invoice.Fields.wha_InvoiceId, WHa_Invoice.Fields.wha_InvoiceNumber)
             };
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceFor,  ConditionOperator.Equal,        accountId);
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.GreaterEqual, periodStart);
@@ -89,6 +89,9 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             var existing = svc.RetrieveMultiple(qe);
             if (existing.Entities.Count == 0) return new DedupResult();
+
+            // Preserve the invoice number from the oldest duplicate so it survives the delete
+            var preservedNumber = existing.Entities[0].GetAttributeValue<string>(WHa_Invoice.Fields.wha_InvoiceNumber);
 
             var lineItemsDeleted = 0;
             foreach (var inv in existing.Entities)
@@ -104,7 +107,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = false }
             });
 
-            return new DedupResult { InvoicesDeleted = existing.Entities.Count, LineItemsDeleted = lineItemsDeleted };
+            return new DedupResult { InvoicesDeleted = existing.Entities.Count, LineItemsDeleted = lineItemsDeleted, PreservedInvoiceNumber = preservedNumber };
         }
 
         /// <summary>Calculates the invoice total from the line items and stamps it on the invoice.

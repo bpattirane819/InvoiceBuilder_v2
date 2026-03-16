@@ -40,7 +40,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 var dedup = LineItemWriter.DeleteDuplicateInvoices(svc, accountId, periodStart, periodEnd, invoiceId);
                 if (dedup.InvoicesDeleted > 0)
+                {
                     trace.Trace($"Dedup: {dedup.InvoicesDeleted} invoice(s), {dedup.LineItemsDeleted} line item(s) removed.");
+                    if (!string.IsNullOrWhiteSpace(dedup.PreservedInvoiceNumber) && invoiceId != Guid.Empty)
+                    {
+                        var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
+                        update[WHa_Invoice.Fields.wha_InvoiceNumber] = dedup.PreservedInvoiceNumber;
+                        svc.Update(update);
+                        trace.Trace($"Restored invoice number: {dedup.PreservedInvoiceNumber}");
+                    }
+                }
 
                 var lines  = LineItemGenerator.Generate(svc, invoiceId, accountId, periodStart, periodEnd, currency);
                 var result = LineItemWriter.WriteLineItems(svc, invoiceId, lines, currency);

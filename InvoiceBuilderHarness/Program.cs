@@ -46,8 +46,8 @@ class Program
         Console.WriteLine("Connected to Dataverse");
 
         //TEST INPUTS — change these to test different accounts/month
-        Guid companyGuid    = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");
-        var  dateRun        = new DateTime(2025, 06, 15);  // any date within the target month
+        Guid companyGuid    = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");
+        var  dateRun        = new DateTime(2026, 01, 07);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
 
@@ -57,7 +57,7 @@ class Program
             return;
         }
 
-        //Dry run: generate and print without writing
+        // Dry run: generate and print without writing
         var (periodStart, periodEnd) = BillingPeriod.ForMonth(dateRun);
         var currency = Helpers.GetBaseCurrency(serviceClient);
 
@@ -94,6 +94,13 @@ class Program
         Console.WriteLine("[2] Checking for duplicate invoices...");
         var dedup = LineItemWriter.DeleteDuplicateInvoices(svc, companyGuid, periodStart, periodEnd, invoiceId);
         Console.WriteLine($"    Deleted {dedup.InvoicesDeleted} duplicate invoice(s) and {dedup.LineItemsDeleted} line item(s)");
+        if (!string.IsNullOrWhiteSpace(dedup.PreservedInvoiceNumber))
+        {
+            var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
+            update[WHa_Invoice.Fields.wha_InvoiceNumber] = dedup.PreservedInvoiceNumber;
+            svc.Update(update);
+            Console.WriteLine($"    Restored invoice number: {dedup.PreservedInvoiceNumber}");
+        }
 
         // Step 3 — Generate
         Console.WriteLine();
