@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using DataverseModel;
 using Microsoft.Xrm.Sdk;
 
@@ -16,48 +17,49 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         public void Execute(IServiceProvider serviceProvider)
         {
             var ctx     = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
-            var trace   = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
+            var trace   = new LocalTracingService(serviceProvider);
             var factory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var svc     = factory.CreateOrganizationService(ctx.UserId);
 
             if (!string.Equals(ctx.MessageName, "wha_BuildInvoiceDataset", StringComparison.OrdinalIgnoreCase))
                 return;
 
+            var total = Stopwatch.StartNew();
+
             try
             {
-                var invoiceId = Helpers.ReadOptionalGuid(ctx, "wha_invoiceid");
                 var accountId = Helpers.ReadRequiredGuid(ctx, "wha_account_id");
                 var runDate   = Helpers.ReadRequiredDate(ctx, "wha_run_date");
 
                 var (periodStart, periodEnd) = BillingPeriod.ForMonth(runDate);
+                trace.Trace($"Account={accountId}, Period={periodStart:yyyy-MM-dd}/{periodEnd:yyyy-MM-dd}");
 
-                // Currency: parameter → fetch from invoice record → org base currency
+                // Currency: parameter → org base currency
                 var currency = ctx.InputParameters.Contains("wha_transactioncurrencyid")
                     ? ctx.InputParameters["wha_transactioncurrencyid"] as EntityReference
                     : null;
                 if (currency == null)
-                    currency = Helpers.LoadCurrencyFromInvoice(svc, invoiceId) ?? Helpers.GetBaseCurrency(svc);
+                    currency = Helpers.GetBaseCurrency(svc);
 
-                var dedup = LineItemWriter.DeleteDuplicateInvoices(svc, accountId, periodStart, periodEnd, invoiceId);
-                if (dedup.InvoicesDeleted > 0)
-                {
-                    trace.Trace($"Dedup: {dedup.InvoicesDeleted} invoice(s), {dedup.LineItemsDeleted} line item(s) removed.");
-                    if (!string.IsNullOrWhiteSpace(dedup.PreservedInvoiceNumber) && invoiceId != Guid.Empty)
-                    {
-                        var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
-                        update[WHa_Invoice.Fields.wha_InvoiceNumber] = dedup.PreservedInvoiceNumber;
-                        svc.Update(update);
-                        trace.Trace($"Restored invoice number: {dedup.PreservedInvoiceNumber}");
-                    }
-                }
+                trace.Trace("[1] Resolving invoice...");
+                var resolution = LineItemWriter.ResolveInvoice(svc, accountId, periodStart, periodEnd, runDate, currency);
+                if (resolution.HadDuplicates)
+                    trace.Trace($"[1] Done — duplicates resolved: {resolution.InvoicesDeleted} invoice(s) deleted, {resolution.LineItemsDeleted} line item(s) removed. Fresh invoice: {resolution.InvoiceId}");
+                else
+                    trace.Trace($"[1] Done — invoice: {resolution.InvoiceId}, line items cleared: {resolution.LineItemsDeleted}");
 
-                var lines  = LineItemGenerator.Generate(svc, invoiceId, accountId, periodStart, periodEnd, currency);
-                var result = LineItemWriter.WriteLineItems(svc, invoiceId, lines, currency);
+                trace.Trace("[2] Generating line items...");
+                var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, accountId, periodStart, periodEnd, currency);
+                trace.Trace($"[2] Done — {lines.Count} line item(s) generated");
+
+                trace.Trace("[3] Writing line items...");
+                var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
+                trace.Trace($"[3] Done — created: {result.Created}");
 
                 ctx.OutputParameters["wha_hello_message"] =
                     $"Deleted {result.Deleted} old line items. Created {result.Created} invoice line items.";
 
-                trace.Trace($"Done: deleted={result.Deleted}, created={result.Created}, invoice={invoiceId}");
+                trace.Trace($"Total elapsed: {total.ElapsedMilliseconds}ms");
             }
             catch (Exception ex)
             {

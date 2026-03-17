@@ -34,27 +34,22 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 var (periodStart, periodEnd) = BillingPeriod.ForMonth(invoiceDate);
 
-                // Currency: Target entity → fetch from invoice record → org base currency
+                // Currency: Target entity → org base currency
                 var currency = target.GetAttributeValue<EntityReference>("transactioncurrencyid")
-                    ?? Helpers.LoadCurrencyFromInvoice(svc, invoiceId)
                     ?? Helpers.GetBaseCurrency(svc);
 
                 trace.Trace($"Account={accountRef.Id}, Period={periodStart:yyyy-MM-dd}/{periodEnd:yyyy-MM-dd}, Currency={currency?.Name}");
 
-                var dedup = LineItemWriter.DeleteDuplicateInvoices(svc, accountRef.Id, periodStart, periodEnd, invoiceId);
-                trace.Trace($"Dedup: {dedup.InvoicesDeleted} invoice(s), {dedup.LineItemsDeleted} line item(s) removed.");
-                if (!string.IsNullOrWhiteSpace(dedup.PreservedInvoiceNumber))
-                {
-                    var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
-                    update[WHa_Invoice.Fields.wha_InvoiceNumber] = dedup.PreservedInvoiceNumber;
-                    svc.Update(update);
-                    trace.Trace($"Restored invoice number: {dedup.PreservedInvoiceNumber}");
-                }
+                var resolution = LineItemWriter.ResolveInvoice(svc, accountRef.Id, periodStart, periodEnd, invoiceDate, currency);
+                if (resolution.HadDuplicates)
+                    trace.Trace($"Duplicates resolved: {resolution.InvoicesDeleted} invoice(s) deleted, {resolution.LineItemsDeleted} line item(s) removed. Fresh invoice: {resolution.InvoiceId}");
+                else
+                    trace.Trace($"Invoice resolved: {resolution.InvoiceId}");
 
-                var lines  = LineItemGenerator.Generate(svc, invoiceId, accountRef.Id, periodStart, periodEnd, currency);
+                var lines  = LineItemGenerator.Generate(svc, resolution.InvoiceId, accountRef.Id, periodStart, periodEnd, currency);
                 trace.Trace($"Generated {lines.Count} line item(s).");
 
-                var result = LineItemWriter.WriteLineItems(svc, invoiceId, lines, currency);
+                var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
                 trace.Trace($"Written: cleared {result.Deleted}, created {result.Created}.");
             }
             catch (InvalidPluginExecutionException) { throw; }

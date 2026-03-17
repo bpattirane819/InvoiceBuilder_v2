@@ -70,13 +70,19 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return totalDeleted;
         }
 
-        // Enforces one invoice per customer per month. Deletes all invoices (and their line items) for the same account/period except keepInvoiceId. Invoice deletes are batched via ExecuteMultiple.
-        public static DedupResult DeleteDuplicateInvoices(
+        /// <summary>
+        /// Resolves the correct invoice to use for line item generation.
+        /// <para>0 found: creates a new invoice.</para>
+        /// <para>1 found: keeps it, clears its line items only — invoice number preserved naturally.</para>
+        /// <para>2+ found: preserves the oldest invoice number, deletes all, creates a fresh invoice with the preserved number.</para>
+        /// </summary>
+        public static InvoiceResolution ResolveInvoice(
             IOrganizationService svc,
             Guid accountId,
             DateTime periodStart,
             DateTime periodEnd,
-            Guid keepInvoiceId)
+            DateTime invoiceDate,
+            EntityReference currency)
         {
             var qe = new QueryExpression(WHa_Invoice.EntityLogicalName)
             {
@@ -85,29 +91,73 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceFor,  ConditionOperator.Equal,        accountId);
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.GreaterEqual, periodStart);
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.LessEqual,    periodEnd);
-            qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceId,   ConditionOperator.NotEqual,     keepInvoiceId);
+            qe.Orders.Add(new OrderExpression(WHa_Invoice.Fields.CreatedOn, OrderType.Ascending));
 
             var existing = svc.RetrieveMultiple(qe);
-            if (existing.Entities.Count == 0) return new DedupResult();
 
-            // Preserve the invoice number from the oldest duplicate so it survives the delete
-            var preservedNumber = existing.Entities[0].GetAttributeValue<string>(WHa_Invoice.Fields.wha_InvoiceNumber);
-
-            var lineItemsDeleted = 0;
-            foreach (var inv in existing.Entities)
-                lineItemsDeleted += DeleteExistingLineItems(svc, inv.Id);
-
-            var batch = new OrganizationRequestCollection();
-            foreach (var inv in existing.Entities)
-                batch.Add(new DeleteRequest { Target = new EntityReference(WHa_Invoice.EntityLogicalName, inv.Id) });
-
-            svc.Execute(new ExecuteMultipleRequest
+            if (existing.Entities.Count == 1)
             {
-                Requests = batch,
-                Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = false }
-            });
+                // Clean path: one invoice exists — keep it, clear line items only
+                var invoiceId    = existing.Entities[0].Id;
+                var lineItemsDel = DeleteExistingLineItems(svc, invoiceId);
+                return new InvoiceResolution { InvoiceId = invoiceId, LineItemsDeleted = lineItemsDel };
+            }
 
-            return new DedupResult { InvoicesDeleted = existing.Entities.Count, LineItemsDeleted = lineItemsDeleted, PreservedInvoiceNumber = preservedNumber };
+            if (existing.Entities.Count > 1)
+            {
+                // Dirty path: duplicates exist — preserve oldest number, delete all, create fresh
+                var preservedNumber  = existing.Entities[0].GetAttributeValue<string>(WHa_Invoice.Fields.wha_InvoiceNumber);
+                var lineItemsDeleted = 0;
+                foreach (var inv in existing.Entities)
+                    lineItemsDeleted += DeleteExistingLineItems(svc, inv.Id);
+
+                var batch = new OrganizationRequestCollection();
+                foreach (var inv in existing.Entities)
+                    batch.Add(new DeleteRequest { Target = new EntityReference(WHa_Invoice.EntityLogicalName, inv.Id) });
+
+                svc.Execute(new ExecuteMultipleRequest
+                {
+                    Requests = batch,
+                    Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = false }
+                });
+
+                var newId = CreateInvoice(svc, accountId, invoiceDate, currency, preservedNumber);
+                return new InvoiceResolution
+                {
+                    InvoiceId        = newId,
+                    HadDuplicates    = true,
+                    InvoicesDeleted  = existing.Entities.Count,
+                    LineItemsDeleted = lineItemsDeleted
+                };
+            }
+
+            // No invoices found — create fresh
+            var freshId = CreateInvoice(svc, accountId, invoiceDate, currency, null);
+            return new InvoiceResolution { InvoiceId = freshId };
+        }
+
+        private static Guid CreateInvoice(
+            IOrganizationService svc,
+            Guid accountId,
+            DateTime invoiceDate,
+            EntityReference currency,
+            string invoiceNumber)
+        {
+            var invoice = new Entity(WHa_Invoice.EntityLogicalName);
+            invoice[WHa_Invoice.Fields.wha_InvoiceFor]  = new EntityReference("account", accountId);
+            invoice[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
+            if (currency != null) invoice["transactioncurrencyid"] = currency;
+
+            var id = svc.Create(invoice);
+
+            if (!string.IsNullOrWhiteSpace(invoiceNumber))
+            {
+                var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = id };
+                update[WHa_Invoice.Fields.wha_InvoiceNumber] = invoiceNumber;
+                svc.Update(update);
+            }
+
+            return id;
         }
 
         /// <summary>Calculates the invoice total from the line items and stamps it on the invoice.

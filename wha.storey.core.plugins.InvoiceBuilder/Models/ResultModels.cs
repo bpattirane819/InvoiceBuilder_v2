@@ -10,10 +10,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         public List<Guid> CreatedIds { get; set; }
     }
 
-    public sealed class DedupResult
+    public sealed class InvoiceResolution
     {
-        public int    InvoicesDeleted        { get; set; }
-        public int    LineItemsDeleted       { get; set; }
-        public string PreservedInvoiceNumber { get; set; }
+        public Guid   InvoiceId       { get; set; }
+        public bool   HadDuplicates   { get; set; }
+        public int    InvoicesDeleted { get; set; }
+        public int    LineItemsDeleted{ get; set; }
     }
 }

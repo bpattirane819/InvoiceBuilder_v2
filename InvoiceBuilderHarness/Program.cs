@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using DataverseModel;
 using Microsoft.Extensions.Configuration;
@@ -46,7 +47,7 @@ class Program
         Console.WriteLine("Connected to Dataverse");
 
         //TEST INPUTS — change these to test different accounts/month
-        Guid companyGuid    = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");
+        Guid companyGuid    = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");
         var  dateRun        = new DateTime(2026, 01, 07);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
@@ -73,50 +74,46 @@ class Program
     {
         Console.WriteLine("=== Simulating GenerateInvoiceLineItemsPlugin ===");
 
+        var sw = Stopwatch.StartNew();
+
         var (periodStart, periodEnd) = BillingPeriod.ForMonth(dateRun);
         var currency = Helpers.GetBaseCurrency(svc);
 
         Console.WriteLine($"Account: {companyGuid}");
         Console.WriteLine($"Period:  {periodStart:yyyy-MM-dd} - {periodEnd:yyyy-MM-dd}");
 
-        // Step 1 — Create invoice
+        // Step 1 — Resolve invoice (find existing, clean duplicates, or create fresh)
         Console.WriteLine();
-        Console.WriteLine("[1] Creating new invoice...");
-        var invoiceEntity = new Entity(WHa_Invoice.EntityLogicalName);
-        invoiceEntity[WHa_Invoice.Fields.wha_InvoiceFor]  = new EntityReference("account", companyGuid);
-        invoiceEntity[WHa_Invoice.Fields.wha_InvoiceDate] = dateRun;
-        if (currency != null) invoiceEntity["transactioncurrencyid"] = currency;
-        var invoiceId = svc.Create(invoiceEntity);
-        Console.WriteLine($"    Created invoice: {invoiceId}");
+        Console.WriteLine("[1] Resolving invoice...");
+        sw.Restart();
+        var resolution = LineItemWriter.ResolveInvoice(svc, companyGuid, periodStart, periodEnd, dateRun, currency);
+        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms");
+        if (resolution.HadDuplicates)
+            Console.WriteLine($"    Duplicates found: deleted {resolution.InvoicesDeleted} invoice(s) and {resolution.LineItemsDeleted} line item(s). Fresh invoice created: {resolution.InvoiceId}");
+        else
+            Console.WriteLine($"    Invoice resolved: {resolution.InvoiceId}  (line items cleared: {resolution.LineItemsDeleted})");
 
-        // Step 2 — Dedup
+        // Step 2 — Generate
         Console.WriteLine();
-        Console.WriteLine("[2] Checking for duplicate invoices...");
-        var dedup = LineItemWriter.DeleteDuplicateInvoices(svc, companyGuid, periodStart, periodEnd, invoiceId);
-        Console.WriteLine($"    Deleted {dedup.InvoicesDeleted} duplicate invoice(s) and {dedup.LineItemsDeleted} line item(s)");
-        if (!string.IsNullOrWhiteSpace(dedup.PreservedInvoiceNumber))
-        {
-            var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
-            update[WHa_Invoice.Fields.wha_InvoiceNumber] = dedup.PreservedInvoiceNumber;
-            svc.Update(update);
-            Console.WriteLine($"    Restored invoice number: {dedup.PreservedInvoiceNumber}");
-        }
+        Console.WriteLine("[2] Generating line items...");
+        sw.Restart();
+        var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, companyGuid, periodStart, periodEnd, currency);
+        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms — {lines.Count} line item(s) generated");
 
-        // Step 3 — Generate
+        // Step 3 — Write
         Console.WriteLine();
-        Console.WriteLine("[3] Generating line items...");
-        var lines = LineItemGenerator.Generate(svc, invoiceId, companyGuid, periodStart, periodEnd, currency);
-        Console.WriteLine($"    Generated {lines.Count} line item(s)");
-
-        // Step 4 — Write
-        Console.WriteLine();
-        Console.WriteLine("[4] Writing line items...");
-        var result = LineItemWriter.WriteLineItems(svc, invoiceId, lines, currency);
+        Console.WriteLine("[3] Writing line items...");
+        sw.Restart();
+        var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
+        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms");
 
         Console.WriteLine();
         Console.WriteLine("=== RESULT ===");
-        Console.WriteLine($"  Duplicate invoices deleted:    {dedup.InvoicesDeleted}");
-        Console.WriteLine($"  Duplicate line items deleted:  {dedup.LineItemsDeleted}");
+        if (resolution.HadDuplicates)
+        {
+            Console.WriteLine($"  Duplicate invoices deleted:    {resolution.InvoicesDeleted}");
+            Console.WriteLine($"  Duplicate line items deleted:  {resolution.LineItemsDeleted}");
+        }
         Console.WriteLine($"  Stale line items cleared:      {result.Deleted}");
         Console.WriteLine($"  Line items created:            {result.Created}");
 
