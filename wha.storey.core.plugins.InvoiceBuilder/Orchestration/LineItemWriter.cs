@@ -84,22 +84,34 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             DateTime invoiceDate,
             EntityReference currency)
         {
+            // Look for existing invoices by run month (invoice date), not billing period.
+            // Invoice date = run date (e.g. Apr 5); billing period = previous month (Mar 1–31).
+            var runMonthStart = new DateTime(invoiceDate.Year, invoiceDate.Month, 1, 0, 0, 0, invoiceDate.Kind);
+            var runMonthEnd   = runMonthStart.AddMonths(1).AddTicks(-1);
+
             var qe = new QueryExpression(WHa_Invoice.EntityLogicalName)
             {
                 ColumnSet = new ColumnSet(WHa_Invoice.Fields.wha_InvoiceId, WHa_Invoice.Fields.wha_InvoiceNumber)
             };
             qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceFor,  ConditionOperator.Equal,        accountId);
-            qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.GreaterEqual, periodStart);
-            qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.LessEqual,    periodEnd);
+            qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.GreaterEqual, runMonthStart);
+            qe.Criteria.AddCondition(WHa_Invoice.Fields.wha_InvoiceDate, ConditionOperator.LessEqual,    runMonthEnd);
             qe.Orders.Add(new OrderExpression(WHa_Invoice.Fields.CreatedOn, OrderType.Ascending));
 
             var existing = svc.RetrieveMultiple(qe);
 
             if (existing.Entities.Count == 1)
             {
-                // Clean path: one invoice exists — keep it, clear line items only
+                // Clean path: one invoice exists — keep it, update invoice date, clear line items only
                 var invoiceId    = existing.Entities[0].Id;
                 var lineItemsDel = DeleteExistingLineItems(svc, invoiceId);
+
+                var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
+                update[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
+                var cleanDueDate = GetDueDate(svc, accountId, invoiceDate);
+                if (cleanDueDate.HasValue) update[WHa_Invoice.Fields.wha_DueDate] = cleanDueDate.Value;
+                svc.Update(update);
+
                 return new InvoiceResolution { InvoiceId = invoiceId, LineItemsDeleted = lineItemsDel };
             }
 
@@ -148,6 +160,9 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             invoice[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
             if (currency != null) invoice["transactioncurrencyid"] = currency;
 
+            var dueDate = GetDueDate(svc, accountId, invoiceDate);
+            if (dueDate.HasValue) invoice[WHa_Invoice.Fields.wha_DueDate] = dueDate.Value;
+
             var id = svc.Create(invoice);
 
             if (!string.IsNullOrWhiteSpace(invoiceNumber))
@@ -158,6 +173,22 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             }
 
             return id;
+        }
+
+        private static DateTime? GetDueDate(IOrganizationService svc, Guid accountId, DateTime invoiceDate)
+        {
+            var account = svc.Retrieve(Account.EntityLogicalName, accountId, new ColumnSet(Account.Fields.PaymentTermsCode));
+            var terms   = account.GetAttributeValue<OptionSetValue>(Account.Fields.PaymentTermsCode);
+            if (terms == null) return null;
+
+            switch (terms.Value)
+            {
+                case 1: return invoiceDate.AddDays(15);
+                case 2: return invoiceDate.AddDays(30);
+                case 3: return invoiceDate.AddDays(45);
+                case 4: return invoiceDate.AddDays(60);
+                default: return null;
+            }
         }
 
         /// <summary>Calculates the invoice total from the line items and stamps it on the invoice.

@@ -47,8 +47,8 @@ class Program
         Console.WriteLine("Connected to Dataverse");
 
         //TEST INPUTS — change these to test different accounts/month
-        Guid companyGuid    = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");
-        var  dateRun        = new DateTime(2026, 01, 07);  // any date within the target month
+        Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC
+        var  dateRun        = new DateTime(2026, 02, 04);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
 
@@ -87,7 +87,7 @@ class Program
         Console.WriteLine("[1] Resolving invoice...");
         sw.Restart();
         var resolution = LineItemWriter.ResolveInvoice(svc, companyGuid, periodStart, periodEnd, dateRun, currency);
-        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms");
+        Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s");
         if (resolution.HadDuplicates)
             Console.WriteLine($"    Duplicates found: deleted {resolution.InvoicesDeleted} invoice(s) and {resolution.LineItemsDeleted} line item(s). Fresh invoice created: {resolution.InvoiceId}");
         else
@@ -98,14 +98,14 @@ class Program
         Console.WriteLine("[2] Generating line items...");
         sw.Restart();
         var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, companyGuid, periodStart, periodEnd, currency);
-        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms — {lines.Count} line item(s) generated");
+        Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s — {lines.Count} line item(s) generated");
 
         // Step 3 — Write
         Console.WriteLine();
         Console.WriteLine("[3] Writing line items...");
         sw.Restart();
         var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
-        Console.WriteLine($"    Done in {sw.ElapsedMilliseconds}ms");
+        Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s");
 
         Console.WriteLine();
         Console.WriteLine("=== RESULT ===");

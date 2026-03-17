@@ -54,7 +54,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Rent.Fields.wha_Space, WHa_Space.Fields.wha_SpaceId, JoinOperator.LeftOuter);
             spaceLink.EntityAlias = "sp";
-            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
+            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_facilityid);
+
+            var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
+            facilityLink.EntityAlias = "fa";
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_FacilityName);
 
             var results = svc.RetrieveMultiple(qe);
             var charges = new List<RentCharge>(results.Entities.Count);
@@ -65,12 +69,13 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 charges.Add(new RentCharge
                 {
-                    RentId    = e.Id,
-                    SpaceId   = e.GetAttributeValue<EntityReference>(WHa_Rent.Fields.wha_Space)?.Id ?? Guid.Empty,
-                    Amount    = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_Amount)?.Value ?? 0m,
-                    RentName  = e.GetAttributeValue<string>(WHa_Rent.Fields.wha_RentName) ?? "",
-                    SpaceName = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",
-                    UnitName  = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string ?? ""
+                    RentId       = e.Id,
+                    SpaceId      = e.GetAttributeValue<EntityReference>(WHa_Rent.Fields.wha_Space)?.Id ?? Guid.Empty,
+                    Amount       = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_Amount)?.Value ?? 0m,
+                    RentName     = e.GetAttributeValue<string>(WHa_Rent.Fields.wha_RentName) ?? "",
+                    FacilityName = e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string ?? "",
+                    SpaceName    = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",
+                    UnitName     = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string ?? ""
                 });
             }
 

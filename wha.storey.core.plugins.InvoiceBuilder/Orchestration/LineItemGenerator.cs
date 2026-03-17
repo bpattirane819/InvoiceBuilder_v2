@@ -44,9 +44,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             foreach (var rent in RentQuery.GetRents(svc, accountId, periodStart, periodEnd))
             {
                 if (rent.RentId == Guid.Empty) continue;
-                var name = !string.IsNullOrWhiteSpace(rent.RentName) ? rent.RentName : $"{rent.SpaceName} Rent";
                 items.Add(Build(invoiceId, currency,
-                    WHa_Rent.EntityLogicalName, rent.RentId, name,
+                    WHa_Rent.EntityLogicalName, rent.RentId, BuildName(rent.FacilityName, rent.UnitName),
                     rent.Amount, rent.SpaceName, rent.UnitName));
             }
 
@@ -79,6 +78,17 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             if (currency != null)                      li.TransactionCurrencyId = currency;
 
             return li;
+        }
+
+        private static string BuildName(string facilityName, string unitName)
+        {
+            var facility = string.IsNullOrWhiteSpace(facilityName) ? null : facilityName.Trim();
+            var unit     = string.IsNullOrWhiteSpace(unitName)     ? null : unitName.Trim();
+
+            if (facility != null && unit != null) return $"{facility} - {unit}";
+            if (facility != null)                 return facility;
+            if (unit != null)                     return unit;
+            return "(unnamed)";
         }
 
         private static string DeriveSourceType(string logicalName)

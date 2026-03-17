@@ -46,7 +46,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             // LEFT JOIN to space — needed to filter on space.wha_rentedby
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Discount.Fields.wha_DiscountForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.LeftOuter);
             spaceLink.EntityAlias = "sp";
-            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_RentedBy, WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
+            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_RentedBy, WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_facilityid);
+
+            var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
+            facilityLink.EntityAlias = "fa";
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_FacilityName);
 
             // Scope: account-level OR space-level
             qe.Criteria.Filters.Add(new FilterExpression(LogicalOperator.Or)
@@ -75,6 +79,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     DiscountId    = e.Id,
                     Amount        = amount.Value,
                     Name          = e.GetAttributeValue<string>(WHa_Discount.Fields.wha_Name) ?? "",
+                    FacilityName  = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string : null,
                     SpaceName     = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,
                     SpaceUnitName = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null
                 });

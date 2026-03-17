@@ -79,7 +79,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             // LEFT JOIN to space for space name/unit on space-level fees
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Fee.Fields.wha_FeeForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.LeftOuter);
             spaceLink.EntityAlias = "sp";
-            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
+            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_facilityid);
+
+            var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
+            facilityLink.EntityAlias = "fa";
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_FacilityName);
 
             var results = svc.RetrieveMultiple(qe);
             var fees    = new List<FeeCharge>(results.Entities.Count);
@@ -98,6 +102,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     FeeId         = e.Id,
                     Amount        = amount.Value,
                     FeeName       = e.GetAttributeValue<string>(WHa_Fee.Fields.wha_Name) ?? "",
+                    FacilityName  = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string : null,
                     SpaceName     = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,
                     SpaceUnitName = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null
                 });
