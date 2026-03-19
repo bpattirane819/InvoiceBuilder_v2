@@ -18,7 +18,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         public Guid    FeeId         { get; set; }
         public decimal Amount        { get; set; }
         public string  FeeName       { get; set; } = "";
-        public string  FacilityName  { get; set; }
+        public bool    IsSpaceLevel  { get; set; }
         public string  SpaceName     { get; set; }
         public string  SpaceUnitName { get; set; }
     }

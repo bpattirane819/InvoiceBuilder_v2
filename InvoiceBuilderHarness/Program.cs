@@ -47,8 +47,14 @@ class Program
         Console.WriteLine("Connected to Dataverse");
 
         //TEST INPUTS — change these to test different accounts/month
-        Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC
-        var  dateRun        = new DateTime(2026, 02, 04);  // any date within the target month
+        //Guid companyGuid = Guid.Parse("4e96e2cb-da07-f111-8406-6045bdd5fe9f");//Vanda Pharma LLC TEST
+        //Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
+        //Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
+        //Guid companyGuid = Guid.Parse("d0bc87ca-da07-f111-8407-6045bdd8c4a0");//Solaray Test
+        //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
+        Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
+        //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
+        var  dateRun        = new DateTime(2025, 12, 02);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
 
@@ -82,11 +88,13 @@ class Program
         Console.WriteLine($"Account: {companyGuid}");
         Console.WriteLine($"Period:  {periodStart:yyyy-MM-dd} - {periodEnd:yyyy-MM-dd}");
 
+        var consoleTrace = new ConsoleTracingService();
+
         // Step 1 — Resolve invoice (find existing, clean duplicates, or create fresh)
         Console.WriteLine();
         Console.WriteLine("[1] Resolving invoice...");
         sw.Restart();
-        var resolution = LineItemWriter.ResolveInvoice(svc, companyGuid, periodStart, periodEnd, dateRun, currency);
+        var resolution = LineItemWriter.ResolveInvoice(svc, companyGuid, periodStart, periodEnd, dateRun, currency, consoleTrace);
         Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s");
         if (resolution.HadDuplicates)
             Console.WriteLine($"    Duplicates found: deleted {resolution.InvoicesDeleted} invoice(s) and {resolution.LineItemsDeleted} line item(s). Fresh invoice created: {resolution.InvoiceId}");
@@ -104,7 +112,7 @@ class Program
         Console.WriteLine();
         Console.WriteLine("[3] Writing line items...");
         sw.Restart();
-        var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
+        var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency, consoleTrace);
         Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s");
 
         Console.WriteLine();
@@ -114,7 +122,7 @@ class Program
             Console.WriteLine($"  Duplicate invoices deleted:    {resolution.InvoicesDeleted}");
             Console.WriteLine($"  Duplicate line items deleted:  {resolution.LineItemsDeleted}");
         }
-        Console.WriteLine($"  Stale line items cleared:      {result.Deleted}");
+        Console.WriteLine($"  Line items cleared (resolve):  {resolution.LineItemsDeleted}");
         Console.WriteLine($"  Line items created:            {result.Created}");
 
         PrintLineItems(lines, periodStart, periodEnd, companyGuid);
@@ -155,6 +163,12 @@ class Program
         Console.WriteLine($"  ─────────────────────────────");
         Console.WriteLine($"  Grand Total: {grandTotal,10:C}");
         Console.WriteLine("===================================================");
+    }
+
+    class ConsoleTracingService : Microsoft.Xrm.Sdk.ITracingService
+    {
+        public void Trace(string format, params object[] args)
+            => Console.WriteLine("    " + (args.Length > 0 ? string.Format(format, args) : format));
     }
 
     static void PrintGroup(string label, List<WHa_InvoiceLineItem> items)

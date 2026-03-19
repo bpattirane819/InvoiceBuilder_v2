@@ -53,13 +53,13 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 trace.Trace($"[2] Done — {lines.Count} line item(s) generated");
 
                 trace.Trace("[3] Writing line items...");
-                var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
+                var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency, trace);
                 trace.Trace($"[3] Done — created: {result.Created}");
 
                 ctx.OutputParameters["wha_hello_message"] =
-                    $"Deleted {result.Deleted} old line items. Created {result.Created} invoice line items.";
+                    $"Created {result.Created} invoice line items.";
 
-                trace.Trace($"Total elapsed: {total.ElapsedMilliseconds}ms");
+                trace.Trace($"Total elapsed: {total.Elapsed.TotalSeconds:F2}s");
             }
             catch (Exception ex)
             {

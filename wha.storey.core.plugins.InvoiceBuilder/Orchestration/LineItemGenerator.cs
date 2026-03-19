@@ -27,7 +27,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             {
                 if (fee.FeeId == Guid.Empty) continue;
                 items.Add(Build(invoiceId, currency,
-                    WHa_Fee.EntityLogicalName, fee.FeeId, fee.FeeName,
+                    WHa_Fee.EntityLogicalName, fee.FeeId, BuildFeeName(fee.FeeName, fee.IsSpaceLevel, fee.SpaceUnitName),
                     fee.Amount, fee.SpaceName, fee.SpaceUnitName));
             }
 
@@ -78,6 +78,14 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             if (currency != null)                      li.TransactionCurrencyId = currency;
 
             return li;
+        }
+
+        private static string BuildFeeName(string feeName, bool isSpaceLevel, string unitName)
+        {
+            var name = string.IsNullOrWhiteSpace(feeName) ? "(unnamed)" : feeName.Trim();
+            if (!isSpaceLevel)                              return $"{name} - Account Level";
+            if (!string.IsNullOrWhiteSpace(unitName))      return $"{name} - {unitName.Trim()}";
+            return $"{name} - Space Level";
         }
 
         private static string BuildName(string facilityName, string unitName)

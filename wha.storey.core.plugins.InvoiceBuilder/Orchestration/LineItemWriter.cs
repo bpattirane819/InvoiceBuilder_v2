@@ -10,7 +10,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
     /// <summary>
     /// Handles idempotent write of invoice line items to Dataverse.
     /// Creates and deletes via ExecuteMultiple (batch 1000) — 1 round trip each.
-    /// CalculateInvoiceTotalPlugin is suppressed during ExecuteMultiple (by design);
     /// UpdateInvoiceTotal() stamps the correct total directly after batch create.
     /// </summary>
     public static class LineItemWriter
@@ -22,10 +21,10 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             IOrganizationService svc,
             Guid invoiceId,
             IReadOnlyList<WHa_InvoiceLineItem> lineItems,
-            EntityReference currency = null)
+            EntityReference currency = null,
+            ITracingService trace = null)
         {
-            int deleted = invoiceId != Guid.Empty ? DeleteExistingLineItems(svc, invoiceId) : 0;
-
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var entities = new List<Entity>(lineItems.Count);
             foreach (var li in lineItems)
             {
@@ -34,14 +33,19 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 entities.Add(ToLateBound(li));
             }
 
-            var createdIds = BatchCreate(svc, entities);
+            trace?.Trace($"[3a] Creating {entities.Count} line items...");
+            sw.Restart();
+            BatchCreate(svc, entities);
+            trace?.Trace($"[3a] Done — {entities.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
 
-            // CalculateInvoiceTotalPlugin is suppressed during ExecuteMultiple —
             // stamp the total directly so the invoice always reflects the correct amount.
+            trace?.Trace("[3b] Updating invoice total...");
+            sw.Restart();
             if (invoiceId != Guid.Empty)
                 UpdateInvoiceTotal(svc, invoiceId, lineItems);
+            trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
 
-            return new WriteResult { Deleted = deleted, Created = createdIds.Count, CreatedIds = createdIds };
+            return new WriteResult { Created = entities.Count };
         }
 
         // Deletes all existing line items for the given invoice, paged in batches of 2500.
@@ -57,15 +61,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 PageInfo  = new PagingInfo { PageNumber = 1, Count = 2500, ReturnTotalRecordCount = false }
             };
 
-            while (true)
+            bool moreRecords;
+            do
             {
                 var page = svc.RetrieveMultiple(qe);
                 if (page?.Entities == null || page.Entities.Count == 0) break;
                 totalDeleted += BatchDelete(svc, WHa_InvoiceLineItem.EntityLogicalName, page.Entities);
-                if (!page.MoreRecords) break;
+                moreRecords = page.MoreRecords;
                 qe.PageInfo.PageNumber++;
                 qe.PageInfo.PagingCookie = page.PagingCookie;
-            }
+            } while (moreRecords);
 
             return totalDeleted;
         }
@@ -82,13 +87,15 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             DateTime periodStart,
             DateTime periodEnd,
             DateTime invoiceDate,
-            EntityReference currency)
+            EntityReference currency,
+            ITracingService trace = null)
         {
             // Look for existing invoices by run month (invoice date), not billing period.
             // Invoice date = run date (e.g. Apr 5); billing period = previous month (Mar 1–31).
             var runMonthStart = new DateTime(invoiceDate.Year, invoiceDate.Month, 1, 0, 0, 0, invoiceDate.Kind);
             var runMonthEnd   = runMonthStart.AddMonths(1).AddTicks(-1);
 
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var qe = new QueryExpression(WHa_Invoice.EntityLogicalName)
             {
                 ColumnSet = new ColumnSet(WHa_Invoice.Fields.wha_InvoiceId, WHa_Invoice.Fields.wha_InvoiceNumber)
@@ -99,12 +106,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             qe.Orders.Add(new OrderExpression(WHa_Invoice.Fields.CreatedOn, OrderType.Ascending));
 
             var existing = svc.RetrieveMultiple(qe);
+            trace?.Trace($"[1a] Invoice query: {existing.Entities.Count} found in {sw.Elapsed.TotalSeconds:F2}s");
 
             if (existing.Entities.Count == 1)
             {
                 // Clean path: one invoice exists — keep it, update invoice date, clear line items only
-                var invoiceId    = existing.Entities[0].Id;
+                var invoiceId = existing.Entities[0].Id;
+                trace?.Trace($"[1b] Deleting existing line items...");
+                sw.Restart();
                 var lineItemsDel = DeleteExistingLineItems(svc, invoiceId);
+                trace?.Trace($"[1b] Done — {lineItemsDel} deleted in {sw.Elapsed.TotalSeconds:F2}s");
 
                 var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
                 update[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
@@ -214,31 +225,26 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             svc.Update(update);
         }
 
-        private static List<Guid> BatchCreate(IOrganizationService svc, IList<Entity> entities)
+        private static void BatchCreate(IOrganizationService svc, IList<Entity> entities)
         {
-            var createdIds = new List<Guid>(entities.Count);
-
+            // HERE IS THE CREATING
             for (int i = 0; i < entities.Count; i += BatchSize)
             {
                 var batch = new OrganizationRequestCollection();
                 for (int j = i; j < entities.Count && j < i + BatchSize; j++)
                     batch.Add(new CreateRequest { Target = entities[j] });
 
-                var response = (ExecuteMultipleResponse)svc.Execute(new ExecuteMultipleRequest
+                svc.Execute(new ExecuteMultipleRequest
                 {
                     Requests = batch,
-                    Settings = new ExecuteMultipleSettings { ContinueOnError = false, ReturnResponses = true }
+                    Settings = new ExecuteMultipleSettings { ContinueOnError = false, ReturnResponses = false }
                 });
-
-                foreach (var r in response.Responses)
-                    if (r.Response is CreateResponse cr) createdIds.Add(cr.id);
             }
-
-            return createdIds;
         }
 
         private static int BatchDelete(IOrganizationService svc, string logicalName, IList<Entity> entities)
         {
+            // HERE IS THE DELETING
             for (int i = 0; i < entities.Count; i += BatchSize)
             {
                 var batch = new OrganizationRequestCollection();
