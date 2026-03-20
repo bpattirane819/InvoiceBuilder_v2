@@ -5,6 +5,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
     public sealed class WriteResult
     {
         public int Created { get; set; }
+        public int Deleted { get; set; }
     }
 
     public sealed class InvoiceResolution

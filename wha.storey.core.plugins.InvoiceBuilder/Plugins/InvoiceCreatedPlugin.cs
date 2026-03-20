@@ -50,7 +50,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 trace.Trace($"Generated {lines.Count} line item(s).");
 
                 var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency);
-                trace.Trace($"Written: created {result.Created}.");
+                trace.Trace($"Written: upserted {result.Created}, orphans deleted {result.Deleted}.");
             }
             catch (InvalidPluginExecutionException) { throw; }
             catch (Exception ex)

@@ -48,13 +48,13 @@ class Program
 
         //TEST INPUTS — change these to test different accounts/month
         //Guid companyGuid = Guid.Parse("4e96e2cb-da07-f111-8406-6045bdd5fe9f");//Vanda Pharma LLC TEST
-        //Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
+        Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
         //Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
         //Guid companyGuid = Guid.Parse("d0bc87ca-da07-f111-8407-6045bdd8c4a0");//Solaray Test
         //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
-        Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
+        //Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
         //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
-        var  dateRun        = new DateTime(2025, 12, 02);  // any date within the target month
+        var  dateRun        = new DateTime(2026, 04, 04);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
 
@@ -80,7 +80,8 @@ class Program
     {
         Console.WriteLine("=== Simulating GenerateInvoiceLineItemsPlugin ===");
 
-        var sw = Stopwatch.StartNew();
+        var totalSw = Stopwatch.StartNew();
+        var sw      = Stopwatch.StartNew();
 
         var (periodStart, periodEnd) = BillingPeriod.ForMonth(dateRun);
         var currency = Helpers.GetBaseCurrency(svc);
@@ -99,7 +100,7 @@ class Program
         if (resolution.HadDuplicates)
             Console.WriteLine($"    Duplicates found: deleted {resolution.InvoicesDeleted} invoice(s) and {resolution.LineItemsDeleted} line item(s). Fresh invoice created: {resolution.InvoiceId}");
         else
-            Console.WriteLine($"    Invoice resolved: {resolution.InvoiceId}  (line items cleared: {resolution.LineItemsDeleted})");
+            Console.WriteLine($"    Invoice resolved: {resolution.InvoiceId}");
 
         // Step 2 — Generate
         Console.WriteLine();
@@ -122,10 +123,10 @@ class Program
             Console.WriteLine($"  Duplicate invoices deleted:    {resolution.InvoicesDeleted}");
             Console.WriteLine($"  Duplicate line items deleted:  {resolution.LineItemsDeleted}");
         }
-        Console.WriteLine($"  Line items cleared (resolve):  {resolution.LineItemsDeleted}");
-        Console.WriteLine($"  Line items created:            {result.Created}");
+        Console.WriteLine($"  Line items upserted:           {result.Created}");
+        Console.WriteLine($"  Orphaned line items deleted:   {result.Deleted}");
 
-        PrintLineItems(lines, periodStart, periodEnd, companyGuid);
+        PrintLineItems(lines, periodStart, periodEnd, companyGuid, totalSw.Elapsed);
 
         Console.WriteLine("==============");
     }
@@ -134,32 +135,39 @@ class Program
         IReadOnlyList<WHa_InvoiceLineItem> lineItems,
         DateTime periodStart,
         DateTime periodEnd,
-        Guid companyGuid)
+        Guid companyGuid,
+        TimeSpan? totalElapsed = null)
     {
         var rents     = lineItems.Where(li => li.wha_SourceType == "Rent").ToList();
         var fees      = lineItems.Where(li => li.wha_SourceType == "Fee").ToList();
         var discounts = lineItems.Where(li => li.wha_SourceType == "Discount").ToList();
+        var credits   = lineItems.Where(li => li.wha_SourceType == "Credit").ToList();
 
         var rentTotal     = rents.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
         var feeTotal      = fees.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
         var discountTotal = discounts.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
-        var grandTotal    = rentTotal + feeTotal - discountTotal;
+        var creditTotal   = credits.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
+        var grandTotal    = rentTotal + feeTotal - discountTotal - creditTotal;
 
         Console.WriteLine();
         Console.WriteLine("===================================================");
         Console.WriteLine($"AccountId: {companyGuid}");
         Console.WriteLine($"Period:    {periodStart:yyyy-MM-dd} - {periodEnd:yyyy-MM-dd}");
         Console.WriteLine($"Total:     {lineItems.Count} line item(s)");
+        if (totalElapsed.HasValue)
+            Console.WriteLine($"Run Time:  {totalElapsed.Value.TotalSeconds:F2}s");
         Console.WriteLine("===================================================");
 
         PrintGroup("RENTS", rents);
         PrintGroup("FEES", fees);
         PrintGroup("DISCOUNTS", discounts);
+        PrintGroup("CREDITS", credits);
 
         Console.WriteLine();
         Console.WriteLine($"  Rents:       {rentTotal,10:C}");
         Console.WriteLine($"  Fees:        {feeTotal,10:C}");
         Console.WriteLine($"  Discounts:  -{discountTotal,9:C}");
+        Console.WriteLine($"  Credits:    -{creditTotal,9:C}");
         Console.WriteLine($"  ─────────────────────────────");
         Console.WriteLine($"  Grand Total: {grandTotal,10:C}");
         Console.WriteLine("===================================================");

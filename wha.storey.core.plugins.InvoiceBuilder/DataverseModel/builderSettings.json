@@ -121,6 +121,7 @@
   "emitVirtualAttributes": true,
   "entityNamesFilter": [
     "account",
+    "wha_credit",
     "wha_discount",
     "wha_discounttemplate",
     "wha_facility",

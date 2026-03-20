@@ -17,11 +17,15 @@ namespace DataverseModel
 	{
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Air Cooled", 10)]
+		[OptionSetMetadataAttribute("24-Hour Access", 6)]
+		_24HourAccess = 959040011,
+		
+		[System.Runtime.Serialization.EnumMemberAttribute()]
+		[OptionSetMetadataAttribute("Air Cooled", 11)]
 		AirCooled = 959040005,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Bluetooth Lock", 7)]
+		[OptionSetMetadataAttribute("Bluetooth Lock", 8)]
 		BluetoothLock = 959040003,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
@@ -33,35 +37,35 @@ namespace DataverseModel
 		CoveredParking = 127620005,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Dumpster Access", 15)]
+		[OptionSetMetadataAttribute("Dumpster Access", 16)]
 		DumpsterAccess = 959040008,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Electricity In Unit", 9)]
+		[OptionSetMetadataAttribute("Electricity In Unit", 10)]
 		ElectricityInUnit = 127620003,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Elevator Access", 14)]
+		[OptionSetMetadataAttribute("Elevator Access", 15)]
 		ElevatorAccess = 959040007,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("First Floor", 13)]
+		[OptionSetMetadataAttribute("First Floor", 14)]
 		FirstFloor = 959040006,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Heated Only", 11)]
+		[OptionSetMetadataAttribute("Heated Only", 12)]
 		HeatedOnly = 127620002,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Humidity Control", 12)]
+		[OptionSetMetadataAttribute("Humidity Control", 13)]
 		HumidityControl = 127620001,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Indoor Drive Up Access", 16)]
+		[OptionSetMetadataAttribute("Indoor Drive Up Access", 17)]
 		IndoorDriveUpAccess = 959040009,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Key On File", 6)]
+		[OptionSetMetadataAttribute("Key On File", 7)]
 		KeyOnFile = 959040002,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
@@ -69,7 +73,7 @@ namespace DataverseModel
 		NonClimateControl = 127620008,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Outdoor Drive Up Access", 17)]
+		[OptionSetMetadataAttribute("Outdoor Drive Up Access", 18)]
 		OutdoorDriveUpAccess = 959040010,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
@@ -85,7 +89,7 @@ namespace DataverseModel
 		UncoveredParking = 127620006,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Wifi", 8)]
+		[OptionSetMetadataAttribute("Wifi", 9)]
 		Wifi = 959040004,
 	}
 }

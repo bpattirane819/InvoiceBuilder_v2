@@ -40,7 +40,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     d.Amount, d.SpaceName, d.SpaceUnitName));
             }
 
-            // 3. Rents
+            // 3. Credits (account-level, subtracted at reporting time)
+            foreach (var credit in CreditQuery.GetCredits(svc, accountId, periodStart, periodEnd))
+            {
+                if (credit.CreditId == Guid.Empty) continue;
+                items.Add(Build(invoiceId, currency,
+                    WHa_Credit.EntityLogicalName, credit.CreditId, credit.Name,
+                    credit.Amount, null, null));
+            }
+
+            // 4. Rents
             foreach (var rent in RentQuery.GetRents(svc, accountId, periodStart, periodEnd))
             {
                 if (rent.RentId == Guid.Empty) continue;
@@ -62,6 +71,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             string spaceName,
             string spaceUnit)
         {
+            var sourceType = DeriveSourceType(sourceLogicalName);
             var li = new WHa_InvoiceLineItem
             {
                 wha_invoiceid           = new EntityReference(WHa_Invoice.EntityLogicalName, invoiceId),
@@ -70,7 +80,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 wha_UnitPrice           = new Money(amount),
                 wha_totallineitemamount = new Money(amount),
                 wha_InvoiceLineItemName = displayName,
-                wha_SourceType          = DeriveSourceType(sourceLogicalName)
+                wha_SourceType          = sourceType,
+                wha_LineItemKey         = $"{invoiceId}|{sourceLogicalName}|{sourceId}|{sourceType}"
             };
 
             if (!string.IsNullOrWhiteSpace(spaceName)) li.wha_SpaceName   = spaceName;
@@ -104,6 +115,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             if (string.Equals(logicalName, WHa_Rent.EntityLogicalName,     StringComparison.OrdinalIgnoreCase)) return "Rent";
             if (string.Equals(logicalName, WHa_Fee.EntityLogicalName,      StringComparison.OrdinalIgnoreCase)) return "Fee";
             if (string.Equals(logicalName, WHa_Discount.EntityLogicalName, StringComparison.OrdinalIgnoreCase)) return "Discount";
+            if (string.Equals(logicalName, WHa_Credit.EntityLogicalName,   StringComparison.OrdinalIgnoreCase)) return "Credit";
             return logicalName;
         }
     }

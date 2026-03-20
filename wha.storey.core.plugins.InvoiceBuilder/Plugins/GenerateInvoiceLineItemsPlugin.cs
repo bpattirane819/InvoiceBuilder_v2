@@ -46,7 +46,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 if (resolution.HadDuplicates)
                     trace.Trace($"[1] Done — duplicates resolved: {resolution.InvoicesDeleted} invoice(s) deleted, {resolution.LineItemsDeleted} line item(s) removed. Fresh invoice: {resolution.InvoiceId}");
                 else
-                    trace.Trace($"[1] Done — invoice: {resolution.InvoiceId}, line items cleared: {resolution.LineItemsDeleted}");
+                    trace.Trace($"[1] Done — invoice: {resolution.InvoiceId}");
 
                 trace.Trace("[2] Generating line items...");
                 var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, accountId, periodStart, periodEnd, currency);
@@ -54,10 +54,10 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 trace.Trace("[3] Writing line items...");
                 var result = LineItemWriter.WriteLineItems(svc, resolution.InvoiceId, lines, currency, trace);
-                trace.Trace($"[3] Done — created: {result.Created}");
+                trace.Trace($"[3] Done — upserted: {result.Created}, orphans deleted: {result.Deleted}");
 
                 ctx.OutputParameters["wha_hello_message"] =
-                    $"Created {result.Created} invoice line items.";
+                    $"Upserted {result.Created} line item(s), deleted {result.Deleted} orphan(s).";
 
                 trace.Trace($"Total elapsed: {total.Elapsed.TotalSeconds:F2}s");
             }

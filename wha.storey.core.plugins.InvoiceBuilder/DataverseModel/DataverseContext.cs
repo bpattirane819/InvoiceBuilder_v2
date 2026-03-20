@@ -40,6 +40,17 @@ namespace DataverseModel
 		}
 		
 		/// <summary>
+		/// Gets a binding to the set of all <see cref="DataverseModel.WHa_Credit"/> entities.
+		/// </summary>
+		public System.Linq.IQueryable<DataverseModel.WHa_Credit> WHa_CreditSet
+		{
+			get
+			{
+				return this.CreateQuery<DataverseModel.WHa_Credit>();
+			}
+		}
+		
+		/// <summary>
 		/// Gets a binding to the set of all <see cref="DataverseModel.WHa_Discount"/> entities.
 		/// </summary>
 		public System.Linq.IQueryable<DataverseModel.WHa_Discount> WHa_DiscountSet

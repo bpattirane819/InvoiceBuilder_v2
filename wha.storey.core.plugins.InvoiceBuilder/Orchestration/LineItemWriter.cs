@@ -16,7 +16,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
     {
         private const int BatchSize = 1000;
 
-        // Deletes existing line items for the invoice, then batch-creates new ones. Stamps the invoice total directly after creation.
+        // Upserts line items by alternate key (wha_lineitemkey), deletes orphans, then stamps the invoice total.
         public static WriteResult WriteLineItems(
             IOrganizationService svc,
             Guid invoiceId,
@@ -25,27 +25,52 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             ITracingService trace = null)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var entities = new List<Entity>(lineItems.Count);
+
+            // Snapshot existing keys before upserting so we can detect orphans afterward
+            var existingKeys = invoiceId != Guid.Empty
+                ? GetExistingKeys(svc, invoiceId)
+                : new Dictionary<string, Guid>();
+
+            var entities    = new List<Entity>(lineItems.Count);
+            var currentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var li in lineItems)
             {
                 li.wha_Quantity = 1;
                 if (currency != null) li.TransactionCurrencyId = currency;
-                entities.Add(ToLateBound(li));
+                entities.Add(ToLateBoundForUpsert(li));
+                if (!string.IsNullOrWhiteSpace(li.wha_LineItemKey))
+                    currentKeys.Add(li.wha_LineItemKey);
             }
 
-            trace?.Trace($"[3a] Creating {entities.Count} line items...");
+            trace?.Trace($"[3a] Upserting {entities.Count} line items...");
             sw.Restart();
-            BatchCreate(svc, entities);
-            trace?.Trace($"[3a] Done — {entities.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
+            BatchUpsert(svc, entities);
+            trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
 
-            // stamp the total directly so the invoice always reflects the correct amount.
-            trace?.Trace("[3b] Updating invoice total...");
+            // Delete line items that existed before but are no longer in the current batch
+            var orphanIds = new List<Guid>();
+            foreach (var kvp in existingKeys)
+                if (!currentKeys.Contains(kvp.Key))
+                    orphanIds.Add(kvp.Value);
+
+            int deleted = 0;
+            if (orphanIds.Count > 0)
+            {
+                trace?.Trace($"[3b] Deleting {orphanIds.Count} orphaned line item(s)...");
+                sw.Restart();
+                BatchDeleteById(svc, WHa_InvoiceLineItem.EntityLogicalName, orphanIds);
+                deleted = orphanIds.Count;
+                trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
+            }
+
+            trace?.Trace("[3c] Updating invoice total...");
             sw.Restart();
             if (invoiceId != Guid.Empty)
                 UpdateInvoiceTotal(svc, invoiceId, lineItems);
-            trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
+            trace?.Trace($"[3c] Done in {sw.Elapsed.TotalSeconds:F2}s");
 
-            return new WriteResult { Created = entities.Count };
+            return new WriteResult { Created = entities.Count, Deleted = deleted };
         }
 
         // Deletes all existing line items for the given invoice, paged in batches of 2500.
@@ -110,12 +135,9 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             if (existing.Entities.Count == 1)
             {
-                // Clean path: one invoice exists — keep it, update invoice date, clear line items only
+                // Clean path: one invoice exists — keep it, update invoice date.
+                // No upfront delete — upsert handles in-place updates, orphan cleanup handles removals.
                 var invoiceId = existing.Entities[0].Id;
-                trace?.Trace($"[1b] Deleting existing line items...");
-                sw.Restart();
-                var lineItemsDel = DeleteExistingLineItems(svc, invoiceId);
-                trace?.Trace($"[1b] Done — {lineItemsDel} deleted in {sw.Elapsed.TotalSeconds:F2}s");
 
                 var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
                 update[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
@@ -123,7 +145,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 if (cleanDueDate.HasValue) update[WHa_Invoice.Fields.wha_DueDate] = cleanDueDate.Value;
                 svc.Update(update);
 
-                return new InvoiceResolution { InvoiceId = invoiceId, LineItemsDeleted = lineItemsDel };
+                return new InvoiceResolution { InvoiceId = invoiceId };
             }
 
             if (existing.Entities.Count > 1)
@@ -214,7 +236,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             foreach (var li in lineItems)
             {
                 var amt = li.wha_totallineitemamount?.Value ?? 0m;
-                if (string.Equals(li.wha_SourceId?.LogicalName, "wha_discount", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(li.wha_SourceId?.LogicalName, "wha_discount", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(li.wha_SourceId?.LogicalName, "wha_credit",   StringComparison.OrdinalIgnoreCase))
                     total -= amt;
                 else
                     total += amt;
@@ -225,14 +248,35 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             svc.Update(update);
         }
 
-        private static void BatchCreate(IOrganizationService svc, IList<Entity> entities)
+        private static Dictionary<string, Guid> GetExistingKeys(IOrganizationService svc, Guid invoiceId)
         {
-            // HERE IS THE CREATING
+            var qe = new QueryExpression(WHa_InvoiceLineItem.EntityLogicalName)
+            {
+                ColumnSet = new ColumnSet(WHa_InvoiceLineItem.Fields.wha_LineItemKey),
+                Criteria  = new FilterExpression
+                {
+                    Conditions = { new ConditionExpression("wha_invoiceid", ConditionOperator.Equal, invoiceId) }
+                }
+            };
+
+            var results = svc.RetrieveMultiple(qe);
+            var dict    = new Dictionary<string, Guid>(results.Entities.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var e in results.Entities)
+            {
+                var key = e.GetAttributeValue<string>(WHa_InvoiceLineItem.Fields.wha_LineItemKey);
+                if (!string.IsNullOrWhiteSpace(key))
+                    dict[key] = e.Id;
+            }
+            return dict;
+        }
+
+        private static void BatchUpsert(IOrganizationService svc, IList<Entity> entities)
+        {
             for (int i = 0; i < entities.Count; i += BatchSize)
             {
                 var batch = new OrganizationRequestCollection();
                 for (int j = i; j < entities.Count && j < i + BatchSize; j++)
-                    batch.Add(new CreateRequest { Target = entities[j] });
+                    batch.Add(new UpsertRequest { Target = entities[j] });
 
                 svc.Execute(new ExecuteMultipleRequest
                 {
@@ -242,9 +286,24 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             }
         }
 
+        private static void BatchDeleteById(IOrganizationService svc, string logicalName, IList<Guid> ids)
+        {
+            for (int i = 0; i < ids.Count; i += BatchSize)
+            {
+                var batch = new OrganizationRequestCollection();
+                for (int j = i; j < ids.Count && j < i + BatchSize; j++)
+                    batch.Add(new DeleteRequest { Target = new EntityReference(logicalName, ids[j]) });
+
+                svc.Execute(new ExecuteMultipleRequest
+                {
+                    Requests = batch,
+                    Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = false }
+                });
+            }
+        }
+
         private static int BatchDelete(IOrganizationService svc, string logicalName, IList<Entity> entities)
         {
-            // HERE IS THE DELETING
             for (int i = 0; i < entities.Count; i += BatchSize)
             {
                 var batch = new OrganizationRequestCollection();
@@ -261,9 +320,12 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return entities.Count;
         }
 
-        private static Entity ToLateBound(Entity earlyBound)
+        private static Entity ToLateBoundForUpsert(Entity earlyBound)
         {
-            var e = new Entity(earlyBound.LogicalName);
+            var keyValue = earlyBound.GetAttributeValue<string>(WHa_InvoiceLineItem.Fields.wha_LineItemKey);
+            var e = string.IsNullOrWhiteSpace(keyValue)
+                ? new Entity(earlyBound.LogicalName)
+                : new Entity(earlyBound.LogicalName, WHa_InvoiceLineItem.Fields.wha_LineItemKey, keyValue);
             foreach (var kvp in earlyBound.Attributes)
                 e[kvp.Key] = kvp.Value;
             return e;

@@ -91,6 +91,7 @@ namespace DataverseModel
 			public const string UTCConversionTimeZoneCode = "utcconversiontimezonecode";
 			public const string VersionNumber = "versionnumber";
 			public const string wha_Accessors = "wha_accessors";
+			public const string wha_AdditionalEmailRecipients = "wha_additionalemailrecipients";
 			public const string wha_Amenities = "wha_amenities";
 			public const string wha_amenitiesName = "wha_amenitiesname";
 			public const string wha_BuildingCode = "wha_buildingcode";
@@ -100,6 +101,7 @@ namespace DataverseModel
 			public const string wha_customer_notes = "wha_customer_notes";
 			public const string wha_dblLength = "wha_dbllength";
 			public const string wha_dblWidth = "wha_dblwidth";
+			public const string wha_EmailSubjectLine = "wha_emailsubjectline";
 			public const string wha_facilityid = "wha_facilityid";
 			public const string wha_facilityidName = "wha_facilityidname";
 			public const string wha_GateCode = "wha_gatecode";
@@ -117,6 +119,8 @@ namespace DataverseModel
 			public const string wha_OriginatingProposalName = "wha_originatingproposalname";
 			public const string wha_OriginatingRequestID = "wha_originatingrequestid";
 			public const string wha_OriginatingSpaceRequestId = "wha_originatingspacerequestid";
+			public const string wha_PaymentMethod = "wha_paymentmethod";
+			public const string wha_paymentmethodName = "wha_paymentmethodname";
 			public const string wha_primarycustomerrepid = "wha_primarycustomerrepid";
 			public const string wha_primarycustomerrepidName = "wha_primarycustomerrepidname";
 			public const string wha_primarycustomerrepidYomiName = "wha_primarycustomerrepidyominame";
@@ -749,6 +753,24 @@ namespace DataverseModel
 			}
 		}
 		
+		/// <summary>
+		/// Additional Recipients for Rental Email
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_additionalemailrecipients")]
+		public string wha_AdditionalEmailRecipients
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_additionalemailrecipients");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_additionalemailrecipients", value);
+			}
+		}
+		
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_amenities")]
 		public virtual System.Collections.Generic.IEnumerable<WHa_SpaceAmenities> wha_Amenities
 		{
@@ -886,6 +908,24 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_dblwidth", value);
+			}
+		}
+		
+		/// <summary>
+		/// Email Subject Line for Rental Email
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_emailsubjectline")]
+		public string wha_EmailSubjectLine
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_emailsubjectline");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_emailsubjectline", value);
 			}
 		}
 		
@@ -1158,6 +1198,38 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_originatingspacerequestid", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_paymentmethod")]
+		public virtual WHa_CHPaymentType? wha_PaymentMethod
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return ((WHa_CHPaymentType?)(EntityOptionSetEnum.GetEnum(this, "wha_paymentmethod")));
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_paymentmethod", value.HasValue ? new Microsoft.Xrm.Sdk.OptionSetValue((int)value) : null);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_paymentmethodname")]
+		public string wha_paymentmethodName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("wha_paymentmethod"))
+				{
+					return this.FormattedValues["wha_paymentmethod"];
+				}
+				else
+				{
+					return default(string);
+				}
 			}
 		}
 		

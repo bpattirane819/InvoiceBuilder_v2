@@ -13,10 +13,10 @@ namespace DataverseModel
 	
 	
 	/// <summary>
-	/// Status of the Invoice
+	/// Status of the Credit
 	/// </summary>
 	[System.Runtime.Serialization.DataContractAttribute()]
-	public enum WHa_Invoice_StateCode
+	public enum WHa_Credit_StateCode
 	{
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
@@ -29,60 +29,28 @@ namespace DataverseModel
 	}
 	
 	/// <summary>
-	/// Reason for the status of the Invoice
+	/// Reason for the status of the Credit
 	/// </summary>
 	[System.Runtime.Serialization.DataContractAttribute()]
-	public enum WHa_Invoice_StatusCode
+	public enum WHa_Credit_StatusCode
 	{
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Cancelled", 1)]
-		Cancelled = 2,
+		[OptionSetMetadataAttribute("Active", 0)]
+		Active = 1,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Clearing", 3)]
-		Clearing = 959040002,
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Draft", 0)]
-		Draft = 1,
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Paid", 4)]
-		Paid = 959040003,
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Sent", 2)]
-		Sent = 959040001,
+		[OptionSetMetadataAttribute("Inactive", 1)]
+		Inactive = 2,
 	}
 	
 	[System.Runtime.Serialization.DataContractAttribute()]
-	public enum WHa_Invoice_WHa_InvoiceStatus
-	{
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Approved", 1)]
-		Approved = 2,
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Draft", 0)]
-		Draft = 1,
-		
-		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Sent", 2)]
-		Sent = 3,
-	}
-	
-	/// <summary>
-	/// This table contains records of invoice details
-	/// </summary>
-	[System.Runtime.Serialization.DataContractAttribute()]
-	[Microsoft.Xrm.Sdk.Client.EntityLogicalNameAttribute("wha_invoice")]
-	public partial class WHa_Invoice : Microsoft.Xrm.Sdk.Entity
+	[Microsoft.Xrm.Sdk.Client.EntityLogicalNameAttribute("wha_credit")]
+	public partial class WHa_Credit : Microsoft.Xrm.Sdk.Entity
 	{
 		
 		/// <summary>
-		/// Available fields, a the time of codegen, for the wha_invoice entity
+		/// Available fields, a the time of codegen, for the wha_credit entity
 		/// </summary>
 		public partial class Fields
 		{
@@ -119,42 +87,36 @@ namespace DataverseModel
 			public const string TransactionCurrencyIdName = "transactioncurrencyidname";
 			public const string UTCConversionTimeZoneCode = "utcconversiontimezonecode";
 			public const string VersionNumber = "versionnumber";
-			public const string wha_DueDate = "wha_duedate";
+			public const string wha_amount = "wha_amount";
+			public const string wha_amount_Base = "wha_amount_base";
+			public const string wha_credit_SourceId_wha_InvoiceLineItem = "wha_credit_SourceId_wha_InvoiceLineItem";
+			public const string wha_creditId = "wha_creditid";
+			public const string Id = "wha_creditid";
+			public const string wha_customerid = "wha_customerid";
+			public const string wha_customeridName = "wha_customeridname";
+			public const string wha_customeridYomiName = "wha_customeridyominame";
 			public const string wha_infocenterid = "wha_infocenterid";
-			public const string wha_invoice_InvoiceFor_account = "wha_invoice_InvoiceFor_account";
-			public const string wha_InvoiceDate = "wha_invoicedate";
-			public const string wha_InvoiceFor = "wha_invoicefor";
-			public const string wha_InvoiceForName = "wha_invoiceforname";
-			public const string wha_InvoiceForYomiName = "wha_invoiceforyominame";
-			public const string wha_InvoiceId = "wha_invoiceid";
-			public const string Id = "wha_invoiceid";
-			public const string wha_invoicelineitem_wha_invoice = "wha_invoicelineitem_wha_invoice";
-			public const string wha_InvoiceNumber = "wha_invoicenumber";
-			public const string wha_invoicestatus = "wha_invoicestatus";
-			public const string wha_invoicestatusName = "wha_invoicestatusname";
-			public const string wha_SentDate = "wha_sentdate";
-			public const string wha_totalamount = "wha_totalamount";
-			public const string wha_totalamount_Base = "wha_totalamount_base";
-			public const string wha_totallineitemamount = "wha_totallineitemamount";
-			public const string wha_totallineitemamount_Base = "wha_totallineitemamount_base";
-			public const string wha_totaltax = "wha_totaltax";
-			public const string wha_totaltax_Base = "wha_totaltax_base";
+			public const string wha_invoicelineitemid = "wha_invoicelineitemid";
+			public const string wha_invoicelineitemidName = "wha_invoicelineitemidname";
+			public const string wha_Name = "wha_name";
+			public const string wha_wha_credit_account_wha_customerid = "wha_wha_credit_account_wha_customerid";
+			public const string wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid = "wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid";
 		}
 		
 		[System.Diagnostics.DebuggerNonUserCode()]
-		public WHa_Invoice(System.Guid id) : 
+		public WHa_Credit(System.Guid id) : 
 				base(EntityLogicalName, id)
 		{
 		}
 		
 		[System.Diagnostics.DebuggerNonUserCode()]
-		public WHa_Invoice(string keyName, object keyValue) : 
+		public WHa_Credit(string keyName, object keyValue) : 
 				base(EntityLogicalName, keyName, keyValue)
 		{
 		}
 		
 		[System.Diagnostics.DebuggerNonUserCode()]
-		public WHa_Invoice(Microsoft.Xrm.Sdk.KeyAttributeCollection keyAttributes) : 
+		public WHa_Credit(Microsoft.Xrm.Sdk.KeyAttributeCollection keyAttributes) : 
 				base(EntityLogicalName, keyAttributes)
 		{
 		}
@@ -165,22 +127,22 @@ namespace DataverseModel
 		/// Default Constructor.
 		/// </summary>
 		[System.Diagnostics.DebuggerNonUserCode()]
-		public WHa_Invoice() : 
+		public WHa_Credit() : 
 				base(EntityLogicalName)
 		{
 		}
 		
-		public const string PrimaryIdAttribute = "wha_invoiceid";
+		public const string PrimaryIdAttribute = "wha_creditid";
 		
-		public const string PrimaryNameAttribute = "wha_invoicenumber";
+		public const string PrimaryNameAttribute = "wha_name";
 		
-		public const string EntitySchemaName = "wha_Invoice";
+		public const string EntitySchemaName = "wha_credit";
 		
-		public const string EntityLogicalName = "wha_invoice";
+		public const string EntityLogicalName = "wha_credit";
 		
-		public const string EntityLogicalCollectionName = "wha_invoices";
+		public const string EntityLogicalCollectionName = "wha_credits";
 		
-		public const string EntitySetName = "wha_invoices";
+		public const string EntitySetName = "wha_credits";
 		
 		/// <summary>
 		/// Unique identifier of the user who created the record.
@@ -570,15 +532,15 @@ namespace DataverseModel
 		}
 		
 		/// <summary>
-		/// Status of the Invoice
+		/// Status of the Credit
 		/// </summary>
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("statecode")]
-		public virtual WHa_Invoice_StateCode? StateCode
+		public virtual WHa_Credit_StateCode? StateCode
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return ((WHa_Invoice_StateCode?)(EntityOptionSetEnum.GetEnum(this, "statecode")));
+				return ((WHa_Credit_StateCode?)(EntityOptionSetEnum.GetEnum(this, "statecode")));
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
@@ -605,15 +567,15 @@ namespace DataverseModel
 		}
 		
 		/// <summary>
-		/// Reason for the status of the Invoice
+		/// Reason for the status of the Credit
 		/// </summary>
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("statuscode")]
-		public virtual WHa_Invoice_StatusCode? StatusCode
+		public virtual WHa_Credit_StatusCode? StatusCode
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return ((WHa_Invoice_StatusCode?)(EntityOptionSetEnum.GetEnum(this, "statuscode")));
+				return ((WHa_Credit_StatusCode?)(EntityOptionSetEnum.GetEnum(this, "statuscode")));
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
@@ -723,118 +685,49 @@ namespace DataverseModel
 			}
 		}
 		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_duedate")]
-		public System.Nullable<System.DateTime> wha_DueDate
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_amount")]
+		public Microsoft.Xrm.Sdk.Money wha_amount
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<System.Nullable<System.DateTime>>("wha_duedate");
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_amount");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_duedate", value);
+				this.SetAttributeValue("wha_amount", value);
 			}
 		}
 		
 		/// <summary>
-		/// ID from legacy Info Center
+		/// Value of the Amount in base currency.
 		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_infocenterid")]
-		public System.Nullable<int> wha_infocenterid
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_amount_base")]
+		public Microsoft.Xrm.Sdk.Money wha_amount_Base
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<System.Nullable<int>>("wha_infocenterid");
-			}
-			[System.Diagnostics.DebuggerNonUserCode()]
-			set
-			{
-				this.SetAttributeValue("wha_infocenterid", value);
-			}
-		}
-		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicedate")]
-		public System.Nullable<System.DateTime> wha_InvoiceDate
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				return this.GetAttributeValue<System.Nullable<System.DateTime>>("wha_invoicedate");
-			}
-			[System.Diagnostics.DebuggerNonUserCode()]
-			set
-			{
-				this.SetAttributeValue("wha_invoicedate", value);
-			}
-		}
-		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicefor")]
-		public Microsoft.Xrm.Sdk.EntityReference wha_InvoiceFor
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.EntityReference>("wha_invoicefor");
-			}
-			[System.Diagnostics.DebuggerNonUserCode()]
-			set
-			{
-				this.SetAttributeValue("wha_invoicefor", value);
-			}
-		}
-		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceforname")]
-		public string wha_InvoiceForName
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				if (this.FormattedValues.Contains("wha_invoicefor"))
-				{
-					return this.FormattedValues["wha_invoicefor"];
-				}
-				else
-				{
-					return default(string);
-				}
-			}
-		}
-		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceforyominame")]
-		public string wha_InvoiceForYomiName
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				if (this.FormattedValues.Contains("wha_invoicefor"))
-				{
-					return this.FormattedValues["wha_invoicefor"];
-				}
-				else
-				{
-					return default(string);
-				}
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_amount_base");
 			}
 		}
 		
 		/// <summary>
 		/// Unique identifier for entity instances
 		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceid")]
-		public System.Nullable<System.Guid> wha_InvoiceId
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_creditid")]
+		public System.Nullable<System.Guid> wha_creditId
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<System.Nullable<System.Guid>>("wha_invoiceid");
+				return this.GetAttributeValue<System.Nullable<System.Guid>>("wha_creditid");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_invoiceid", value);
+				this.SetAttributeValue("wha_creditid", value);
 				if (value.HasValue)
 				{
 					base.Id = value.Value;
@@ -846,7 +739,7 @@ namespace DataverseModel
 			}
 		}
 		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceid")]
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_creditid")]
 		public override System.Guid Id
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
@@ -857,52 +750,34 @@ namespace DataverseModel
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.wha_InvoiceId = value;
+				this.wha_creditId = value;
 			}
 		}
 		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicenumber")]
-		public string wha_InvoiceNumber
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_customerid")]
+		public Microsoft.Xrm.Sdk.EntityReference wha_customerid
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<string>("wha_invoicenumber");
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.EntityReference>("wha_customerid");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_invoicenumber", value);
+				this.SetAttributeValue("wha_customerid", value);
 			}
 		}
 		
-		/// <summary>
-		/// Status of an Invoice
-		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicestatus")]
-		public virtual WHa_Invoice_WHa_InvoiceStatus? wha_invoicestatus
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_customeridname")]
+		public string wha_customeridName
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return ((WHa_Invoice_WHa_InvoiceStatus?)(EntityOptionSetEnum.GetEnum(this, "wha_invoicestatus")));
-			}
-			[System.Diagnostics.DebuggerNonUserCode()]
-			set
-			{
-				this.SetAttributeValue("wha_invoicestatus", value.HasValue ? new Microsoft.Xrm.Sdk.OptionSetValue((int)value) : null);
-			}
-		}
-		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicestatusname")]
-		public string wha_invoicestatusName
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				if (this.FormattedValues.Contains("wha_invoicestatus"))
+				if (this.FormattedValues.Contains("wha_customerid"))
 				{
-					return this.FormattedValues["wha_invoicestatus"];
+					return this.FormattedValues["wha_customerid"];
 				}
 				else
 				{
@@ -911,148 +786,141 @@ namespace DataverseModel
 			}
 		}
 		
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_sentdate")]
-		public System.Nullable<System.DateTime> wha_SentDate
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_customeridyominame")]
+		public string wha_customeridYomiName
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<System.Nullable<System.DateTime>>("wha_sentdate");
+				if (this.FormattedValues.Contains("wha_customerid"))
+				{
+					return this.FormattedValues["wha_customerid"];
+				}
+				else
+				{
+					return default(string);
+				}
+			}
+		}
+		
+		/// <summary>
+		/// ID from legacy Info Center
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_infocenterid")]
+		public string wha_infocenterid
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_infocenterid");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_sentdate", value);
+				this.SetAttributeValue("wha_infocenterid", value);
 			}
 		}
 		
-		/// <summary>
-		/// Shows the total amount due, calculated as the sum of the products, discount, and taxes for the invoice.
-		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totalamount")]
-		public Microsoft.Xrm.Sdk.Money wha_totalamount
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicelineitemid")]
+		public Microsoft.Xrm.Sdk.EntityReference wha_invoicelineitemid
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totalamount");
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.EntityReference>("wha_invoicelineitemid");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_totalamount", value);
+				this.SetAttributeValue("wha_invoicelineitemid", value);
 			}
 		}
 		
-		/// <summary>
-		/// Value of the Total Amount in base currency.
-		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totalamount_base")]
-		public Microsoft.Xrm.Sdk.Money wha_totalamount_Base
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicelineitemidname")]
+		public string wha_invoicelineitemidName
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totalamount_base");
+				if (this.FormattedValues.Contains("wha_invoicelineitemid"))
+				{
+					return this.FormattedValues["wha_invoicelineitemid"];
+				}
+				else
+				{
+					return default(string);
+				}
 			}
 		}
 		
-		/// <summary>
-		/// Shows the sum of all products included on the invoice, based on the specified price and quantities.
-		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totallineitemamount")]
-		public Microsoft.Xrm.Sdk.Money wha_totallineitemamount
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_name")]
+		public string wha_Name
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totallineitemamount");
+				return this.GetAttributeValue<string>("wha_name");
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_totallineitemamount", value);
+				this.SetAttributeValue("wha_name", value);
 			}
 		}
 		
 		/// <summary>
-		/// Value of the Total Line Item Amount in base currency.
+		/// 1:N wha_credit_SourceId_wha_InvoiceLineItem
 		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totallineitemamount_base")]
-		public Microsoft.Xrm.Sdk.Money wha_totallineitemamount_Base
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_credit_SourceId_wha_InvoiceLineItem")]
+		public System.Collections.Generic.IEnumerable<DataverseModel.WHa_InvoiceLineItem> wha_credit_SourceId_wha_InvoiceLineItem
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totallineitemamount_base");
-			}
-		}
-		
-		/// <summary>
-		/// Shows the total of the Tax amounts specified on all products included in the invoice, included in the Total Amount due calculation for the invoice.
-		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totaltax")]
-		public Microsoft.Xrm.Sdk.Money wha_totaltax
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totaltax");
+				return this.GetRelatedEntities<DataverseModel.WHa_InvoiceLineItem>("wha_credit_SourceId_wha_InvoiceLineItem", null);
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetAttributeValue("wha_totaltax", value);
+				this.SetRelatedEntities<DataverseModel.WHa_InvoiceLineItem>("wha_credit_SourceId_wha_InvoiceLineItem", null, value);
 			}
 		}
 		
 		/// <summary>
-		/// Value of the Total Tax in base currency.
+		/// N:1 wha_wha_credit_account_wha_customerid
 		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_totaltax_base")]
-		public Microsoft.Xrm.Sdk.Money wha_totaltax_Base
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_customerid")]
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_wha_credit_account_wha_customerid")]
+		public DataverseModel.Account wha_wha_credit_account_wha_customerid
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_totaltax_base");
-			}
-		}
-		
-		/// <summary>
-		/// 1:N wha_invoicelineitem_wha_invoice
-		/// </summary>
-		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_invoicelineitem_wha_invoice")]
-		public System.Collections.Generic.IEnumerable<DataverseModel.WHa_InvoiceLineItem> wha_invoicelineitem_wha_invoice
-		{
-			[System.Diagnostics.DebuggerNonUserCode()]
-			get
-			{
-				return this.GetRelatedEntities<DataverseModel.WHa_InvoiceLineItem>("wha_invoicelineitem_wha_invoice", null);
+				return this.GetRelatedEntity<DataverseModel.Account>("wha_wha_credit_account_wha_customerid", null);
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetRelatedEntities<DataverseModel.WHa_InvoiceLineItem>("wha_invoicelineitem_wha_invoice", null, value);
+				this.SetRelatedEntity<DataverseModel.Account>("wha_wha_credit_account_wha_customerid", null, value);
 			}
 		}
 		
 		/// <summary>
-		/// N:1 wha_invoice_InvoiceFor_account
+		/// N:1 wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid
 		/// </summary>
-		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicefor")]
-		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_invoice_InvoiceFor_account")]
-		public DataverseModel.Account wha_invoice_InvoiceFor_account
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoicelineitemid")]
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid")]
+		public DataverseModel.WHa_InvoiceLineItem wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid
 		{
 			[System.Diagnostics.DebuggerNonUserCode()]
 			get
 			{
-				return this.GetRelatedEntity<DataverseModel.Account>("wha_invoice_InvoiceFor_account", null);
+				return this.GetRelatedEntity<DataverseModel.WHa_InvoiceLineItem>("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid", null);
 			}
 			[System.Diagnostics.DebuggerNonUserCode()]
 			set
 			{
-				this.SetRelatedEntity<DataverseModel.Account>("wha_invoice_InvoiceFor_account", null, value);
+				this.SetRelatedEntity<DataverseModel.WHa_InvoiceLineItem>("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid", null, value);
 			}
 		}
 		
@@ -1061,7 +929,7 @@ namespace DataverseModel
 		/// <param name="anonymousType">LINQ anonymous type.</param>
 		/// </summary>
 		[System.Diagnostics.DebuggerNonUserCode()]
-		public WHa_Invoice(object anonymousType) : 
+		public WHa_Credit(object anonymousType) : 
 				this()
 		{
             foreach (var p in anonymousType.GetType().GetProperties())
@@ -1079,9 +947,9 @@ namespace DataverseModel
                 {
                     case "id":
                         base.Id = (System.Guid)value;
-                        Attributes["wha_invoiceid"] = base.Id;
+                        Attributes["wha_creditid"] = base.Id;
                         break;
-                    case "wha_invoiceid":
+                    case "wha_creditid":
                         var id = (System.Nullable<System.Guid>) value;
                         if(id == null){ continue; }
                         base.Id = id.Value;

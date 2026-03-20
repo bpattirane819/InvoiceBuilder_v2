@@ -23,6 +23,13 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         public string  SpaceUnitName { get; set; }
     }
 
+    internal sealed class CreditCharge
+    {
+        public Guid    CreditId { get; set; }
+        public decimal Amount   { get; set; }
+        public string  Name     { get; set; } = "";
+    }
+
     internal sealed class DiscountCharge
     {
         public Guid    DiscountId    { get; set; }

@@ -90,6 +90,8 @@ namespace DataverseModel
 			public const string TransactionCurrencyIdName = "transactioncurrencyidname";
 			public const string UTCConversionTimeZoneCode = "utcconversiontimezonecode";
 			public const string VersionNumber = "versionnumber";
+			public const string wha_credit_SourceId_wha_InvoiceLineItem = "wha_credit_SourceId_wha_InvoiceLineItem";
+			public const string wha_FeeandSpace = "wha_feeandspace";
 			public const string wha_infocenterid = "wha_infocenterid";
 			public const string wha_invoiceid = "wha_invoiceid";
 			public const string wha_invoiceidName = "wha_invoiceidname";
@@ -97,6 +99,7 @@ namespace DataverseModel
 			public const string wha_InvoiceLineItemId = "wha_invoicelineitemid";
 			public const string Id = "wha_invoicelineitemid";
 			public const string wha_InvoiceLineItemName = "wha_invoicelineitemname";
+			public const string wha_LineItemKey = "wha_lineitemkey";
 			public const string wha_primarycustomerrepid = "wha_primarycustomerrepid";
 			public const string wha_primarycustomerrepidName = "wha_primarycustomerrepidname";
 			public const string wha_primarycustomerrepidYomiName = "wha_primarycustomerrepidyominame";
@@ -113,6 +116,7 @@ namespace DataverseModel
 			public const string wha_totallineitemamount_Base = "wha_totallineitemamount_base";
 			public const string wha_UnitPrice = "wha_unitprice";
 			public const string wha_unitprice_Base = "wha_unitprice_base";
+			public const string wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid = "wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid";
 			public const string wha_wha_invoicelineitem_wha_discount_wha_SourceId = "wha_wha_invoicelineitem_wha_discount_wha_SourceId";
 			public const string wha_wha_invoicelineitem_wha_fee_wha_SourceId = "wha_wha_invoicelineitem_wha_fee_wha_SourceId";
 			public const string wha_wha_invoicelineitem_wha_rent_wha_SourceId = "wha_wha_invoicelineitem_wha_rent_wha_SourceId";
@@ -136,7 +140,7 @@ namespace DataverseModel
 		{
 		}
 		
-		public const string AlternateKeys = "wha_infocenterid";
+		public const string AlternateKeys = "wha_feeandspace|wha_infocenterid|wha_lineitemkey";
 		
 		/// <summary>
 		/// Default Constructor.
@@ -700,6 +704,21 @@ namespace DataverseModel
 			}
 		}
 		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_feeandspace")]
+		public string wha_FeeandSpace
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_feeandspace");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_feeandspace", value);
+			}
+		}
+		
 		/// <summary>
 		/// ID from legacy Info Center
 		/// </summary>
@@ -803,6 +822,24 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_invoicelineitemname", value);
+			}
+		}
+		
+		/// <summary>
+		/// Key for Upserts
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_lineitemkey")]
+		public string wha_LineItemKey
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_lineitemkey");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_lineitemkey", value);
 			}
 		}
 		
@@ -1056,6 +1093,43 @@ namespace DataverseModel
 			get
 			{
 				return this.GetAttributeValue<Microsoft.Xrm.Sdk.Money>("wha_unitprice_base");
+			}
+		}
+		
+		/// <summary>
+		/// 1:N wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid
+		/// </summary>
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid")]
+		public System.Collections.Generic.IEnumerable<DataverseModel.WHa_Credit> wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetRelatedEntities<DataverseModel.WHa_Credit>("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid", null);
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetRelatedEntities<DataverseModel.WHa_Credit>("wha_wha_credit_wha_invoicelineitem_wha_invoicelineitemid", null, value);
+			}
+		}
+		
+		/// <summary>
+		/// N:1 wha_credit_SourceId_wha_InvoiceLineItem
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_sourceid")]
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_credit_SourceId_wha_InvoiceLineItem")]
+		public DataverseModel.WHa_Credit wha_credit_SourceId_wha_InvoiceLineItem
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetRelatedEntity<DataverseModel.WHa_Credit>("wha_credit_SourceId_wha_InvoiceLineItem", null);
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetRelatedEntity<DataverseModel.WHa_Credit>("wha_credit_SourceId_wha_InvoiceLineItem", null, value);
 			}
 		}
 		

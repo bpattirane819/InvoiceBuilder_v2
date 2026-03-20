@@ -103,6 +103,7 @@ namespace DataverseModel
 			public const string TransactionCurrencyIdName = "transactioncurrencyidname";
 			public const string UTCConversionTimeZoneCode = "utcconversiontimezonecode";
 			public const string VersionNumber = "versionnumber";
+			public const string wha_ActualRentTaxRate = "wha_actualrenttaxrate";
 			public const string wha_Amount = "wha_amount";
 			public const string wha_amount_Base = "wha_amount_base";
 			public const string wha_customerid = "wha_customerid";
@@ -132,6 +133,7 @@ namespace DataverseModel
 			public const string wha_SqFtPricingModelName = "wha_sqftpricingmodelname";
 			public const string wha_StackPercent = "wha_stackpercent";
 			public const string wha_StartDate = "wha_startdate";
+			public const string wha_Tax = "wha_tax";
 			public const string wha_wha_invoicelineitem_wha_rent_wha_SourceId = "wha_wha_invoicelineitem_wha_rent_wha_SourceId";
 		}
 		
@@ -717,6 +719,21 @@ namespace DataverseModel
 			}
 		}
 		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_actualrenttaxrate")]
+		public System.Nullable<decimal> wha_ActualRentTaxRate
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<System.Nullable<decimal>>("wha_actualrenttaxrate");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_actualrenttaxrate", value);
+			}
+		}
+		
 		/// <summary>
 		/// How much the facility charges in rent
 		/// </summary>
@@ -1146,6 +1163,21 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_startdate", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_tax")]
+		public System.Nullable<decimal> wha_Tax
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<System.Nullable<decimal>>("wha_tax");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_tax", value);
 			}
 		}
 		

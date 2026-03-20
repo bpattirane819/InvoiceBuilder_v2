@@ -78,6 +78,7 @@ namespace DataverseModel
 			public const string OwningBusinessUnitName = "owningbusinessunitname";
 			public const string OwningTeam = "owningteam";
 			public const string OwningUser = "owninguser";
+			public const string Referencedwha_fee_OriginatingFee_wha_fee = "Referencedwha_fee_OriginatingFee_wha_fee";
 			public const string StateCode = "statecode";
 			public const string statecodeName = "statecodename";
 			public const string StatusCode = "statuscode";
@@ -92,8 +93,10 @@ namespace DataverseModel
 			public const string wha_AccountDefaultForYomiName = "wha_accountdefaultforyominame";
 			public const string wha_Amount = "wha_amount";
 			public const string wha_amount_Base = "wha_amount_base";
+			public const string wha_BilledDate = "wha_billeddate";
 			public const string wha_EndDate = "wha_enddate";
 			public const string wha_fee_AccountDefaultFor_account = "wha_fee_AccountDefaultFor_account";
+			public const string Referencingwha_fee_OriginatingFee_wha_fee = "wha_fee_OriginatingFee_wha_fee";
 			public const string wha_FeeAssignmentLevel = "wha_feeassignmentlevel";
 			public const string wha_feeassignmentlevelName = "wha_feeassignmentlevelname";
 			public const string wha_FeeForId = "wha_feeforid";
@@ -120,6 +123,8 @@ namespace DataverseModel
 			public const string wha_Notes = "wha_notes";
 			public const string wha_OneTime = "wha_onetime";
 			public const string wha_onetimeName = "wha_onetimename";
+			public const string wha_OriginatingFee = "wha_originatingfee";
+			public const string wha_OriginatingFeeName = "wha_originatingfeename";
 			public const string wha_PercentageofRent = "wha_percentageofrent";
 			public const string wha_Proposal = "wha_proposal";
 			public const string wha_ProposalName = "wha_proposalname";
@@ -794,6 +799,21 @@ namespace DataverseModel
 			}
 		}
 		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_billeddate")]
+		public System.Nullable<System.DateTime> wha_BilledDate
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<System.Nullable<System.DateTime>>("wha_billeddate");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_billeddate", value);
+			}
+		}
+		
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_enddate")]
 		public System.Nullable<System.DateTime> wha_EndDate
 		{
@@ -1241,6 +1261,38 @@ namespace DataverseModel
 			}
 		}
 		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_originatingfee")]
+		public Microsoft.Xrm.Sdk.EntityReference wha_OriginatingFee
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.EntityReference>("wha_originatingfee");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_originatingfee", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_originatingfeename")]
+		public string wha_OriginatingFeeName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("wha_originatingfee"))
+				{
+					return this.FormattedValues["wha_originatingfee"];
+				}
+				else
+				{
+					return default(string);
+				}
+			}
+		}
+		
 		/// <summary>
 		/// Fee as percentage of rent
 		/// </summary>
@@ -1337,6 +1389,24 @@ namespace DataverseModel
 		}
 		
 		/// <summary>
+		/// 1:N wha_fee_OriginatingFee_wha_fee
+		/// </summary>
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referenced)]
+		public System.Collections.Generic.IEnumerable<DataverseModel.WHa_Fee> Referencedwha_fee_OriginatingFee_wha_fee
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetRelatedEntities<DataverseModel.WHa_Fee>("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referenced);
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetRelatedEntities<DataverseModel.WHa_Fee>("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referenced, value);
+			}
+		}
+		
+		/// <summary>
 		/// 1:N wha_wha_invoicelineitem_wha_fee_wha_SourceId
 		/// </summary>
 		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_wha_invoicelineitem_wha_fee_wha_SourceId")]
@@ -1370,6 +1440,25 @@ namespace DataverseModel
 			set
 			{
 				this.SetRelatedEntity<DataverseModel.Account>("wha_fee_AccountDefaultFor_account", null, value);
+			}
+		}
+		
+		/// <summary>
+		/// N:1 wha_fee_OriginatingFee_wha_fee
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_originatingfee")]
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referencing)]
+		public DataverseModel.WHa_Fee Referencingwha_fee_OriginatingFee_wha_fee
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetRelatedEntity<DataverseModel.WHa_Fee>("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referencing);
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetRelatedEntity<DataverseModel.WHa_Fee>("wha_fee_OriginatingFee_wha_fee", Microsoft.Xrm.Sdk.EntityRole.Referencing, value);
 			}
 		}
 		

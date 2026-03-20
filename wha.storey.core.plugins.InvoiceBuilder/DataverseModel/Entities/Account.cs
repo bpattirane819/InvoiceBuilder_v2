@@ -388,12 +388,12 @@ namespace DataverseModel
 	{
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("2% 10, Net 30", 1)]
-		_210Net30 = 2,
+		[OptionSetMetadataAttribute("Net 15", 0)]
+		Net15 = 1,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Net 30", 0)]
-		Net30 = 1,
+		[OptionSetMetadataAttribute("Net 30", 1)]
+		Net30 = 2,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
 		[OptionSetMetadataAttribute("Net 45", 2)]
@@ -717,6 +717,8 @@ namespace DataverseModel
 			public const string msdyn_PrimaryTimeZone = "msdyn_primarytimezone";
 			public const string msdyn_salesaccelerationinsightid = "msdyn_salesaccelerationinsightid";
 			public const string msdyn_salesaccelerationinsightidName = "msdyn_salesaccelerationinsightidname";
+			public const string msdyn_segmentid = "msdyn_segmentid";
+			public const string msdyn_segmentidName = "msdyn_segmentidname";
 			public const string Name = "name";
 			public const string NumberOfEmployees = "numberofemployees";
 			public const string OnHoldTime = "onholdtime";
@@ -837,6 +839,7 @@ namespace DataverseModel
 			public const string wha_statuscodeName = "wha_statuscodename";
 			public const string wha_TaxID = "wha_taxid";
 			public const string wha_Tier = "wha_tier";
+			public const string wha_wha_credit_account_wha_customerid = "wha_wha_credit_account_wha_customerid";
 			public const string wha_wha_discount_account_wha_DiscountForId = "wha_wha_discount_account_wha_DiscountForId";
 			public const string wha_wha_fee_account_wha_FeeForId = "wha_wha_fee_account_wha_FeeForId";
 			public const string YomiName = "yominame";
@@ -3539,6 +3542,41 @@ namespace DataverseModel
 		}
 		
 		/// <summary>
+		/// Unique identifier for Segment associated with account.
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("msdyn_segmentid")]
+		public Microsoft.Xrm.Sdk.EntityReference msdyn_segmentid
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<Microsoft.Xrm.Sdk.EntityReference>("msdyn_segmentid");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("msdyn_segmentid", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("msdyn_segmentidname")]
+		public string msdyn_segmentidName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("msdyn_segmentid"))
+				{
+					return this.FormattedValues["msdyn_segmentid"];
+				}
+				else
+				{
+					return default(string);
+				}
+			}
+		}
+		
+		/// <summary>
 		/// Type the company or business name.
 		/// </summary>
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("name")]
@@ -5566,6 +5604,24 @@ namespace DataverseModel
 			set
 			{
 				this.SetRelatedEntities<DataverseModel.WHa_Space>("wha_space_RentedBy_account", null, value);
+			}
+		}
+		
+		/// <summary>
+		/// 1:N wha_wha_credit_account_wha_customerid
+		/// </summary>
+		[Microsoft.Xrm.Sdk.RelationshipSchemaNameAttribute("wha_wha_credit_account_wha_customerid")]
+		public System.Collections.Generic.IEnumerable<DataverseModel.WHa_Credit> wha_wha_credit_account_wha_customerid
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetRelatedEntities<DataverseModel.WHa_Credit>("wha_wha_credit_account_wha_customerid", null);
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetRelatedEntities<DataverseModel.WHa_Credit>("wha_wha_credit_account_wha_customerid", null, value);
 			}
 		}
 		
