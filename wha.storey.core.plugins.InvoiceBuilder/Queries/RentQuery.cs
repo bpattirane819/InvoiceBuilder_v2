@@ -24,7 +24,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             {
                 ColumnSet = new ColumnSet(
                     WHa_Rent.Fields.wha_RentId,
-                    WHa_Rent.Fields.wha_Amount,
+                    WHa_Rent.Fields.wha_CustomerRentAmount,
                     WHa_Rent.Fields.wha_StartDate,
                     WHa_Rent.Fields.wha_EndDate,
                     WHa_Rent.Fields.wha_Space,
@@ -71,7 +71,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 {
                     RentId       = e.Id,
                     SpaceId      = e.GetAttributeValue<EntityReference>(WHa_Rent.Fields.wha_Space)?.Id ?? Guid.Empty,
-                    Amount       = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_Amount)?.Value ?? 0m,
+                    Amount       = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_CustomerRentAmount)?.Value ?? 0m,
                     RentName     = e.GetAttributeValue<string>(WHa_Rent.Fields.wha_RentName) ?? "",
                     FacilityName = e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string ?? "",
                     SpaceName    = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",

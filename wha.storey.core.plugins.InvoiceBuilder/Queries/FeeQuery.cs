@@ -120,13 +120,14 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
-        // wha_feeassignmentlevel IN (10001, 10002) OR wha_feelevel IN (1000, 1003)
+        // wha_feeassignmentlevel IN (10001, 10002) OR wha_feelevel IN (1000)
         private static FilterExpression BuildAssignmentLevelFilter() =>
-            new FilterExpression(LogicalOperator.Or)
+            new FilterExpression(LogicalOperator.And)
             {
                 Conditions =
                 {
-                    new ConditionExpression("wha_feeassignmentlevel", ConditionOperator.In, new object[] { 10001, 10002 })                    
+                    new ConditionExpression("wha_feeassignmentlevel", ConditionOperator.In, new object[] { 10001, 10002 }),
+                    //new ConditionExpression("wha_feelevel",           ConditionOperator.In, new object[] { 1000, 1001, 1002,1003 })
                 }
             };
 

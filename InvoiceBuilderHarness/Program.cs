@@ -46,15 +46,18 @@ class Program
 
         Console.WriteLine("Connected to Dataverse");
 
+        //Guid companyGuid = Guid.Parse("c4582553-bdf6-f011-8406-000d3a1b93dd");
+
+
         //TEST INPUTS — change these to test different accounts/month
         //Guid companyGuid = Guid.Parse("4e96e2cb-da07-f111-8406-6045bdd5fe9f");//Vanda Pharma LLC TEST
-        Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
-        //Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
+        //Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
+        Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
         //Guid companyGuid = Guid.Parse("d0bc87ca-da07-f111-8407-6045bdd8c4a0");//Solaray Test
         //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
         //Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
         //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
-        var  dateRun        = new DateTime(2026, 04, 04);  // any date within the target month
+        var  dateRun        = new DateTime(2026, 05, 04);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
 

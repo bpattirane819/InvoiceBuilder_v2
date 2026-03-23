@@ -54,6 +54,14 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 if (!currentKeys.Contains(kvp.Key))
                     orphanIds.Add(kvp.Value);
 
+            // Also delete any pre-upsert records that have no wha_lineitemkey (NULL key = created before upsert was implemented)
+            if (invoiceId != Guid.Empty)
+            {
+                var keylessIds = GetKeylessLineItemIds(svc, invoiceId);
+                foreach (var id in keylessIds)
+                    orphanIds.Add(id);
+            }
+
             int deleted = 0;
             if (orphanIds.Count > 0)
             {
@@ -246,6 +254,28 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
             update["wha_totalamount"] = new Money(total);
             svc.Update(update);
+        }
+        //Cleans up old data that didn't have wha_lineitemkey populated (pre-upsert implementation) to prevent duplicates from accumulating until next upsert run.
+        private static List<Guid> GetKeylessLineItemIds(IOrganizationService svc, Guid invoiceId)
+        {
+            var qe = new QueryExpression(WHa_InvoiceLineItem.EntityLogicalName)
+            {
+                ColumnSet = new ColumnSet(false),
+                Criteria  = new FilterExpression(LogicalOperator.And)
+                {
+                    Conditions =
+                    {
+                        new ConditionExpression("wha_invoiceid",    ConditionOperator.Equal, invoiceId),
+                        new ConditionExpression("wha_lineitemkey",  ConditionOperator.Null)
+                    }
+                }
+            };
+
+            var results = svc.RetrieveMultiple(qe);
+            var ids     = new List<Guid>(results.Entities.Count);
+            foreach (var e in results.Entities)
+                ids.Add(e.Id);
+            return ids;
         }
 
         private static Dictionary<string, Guid> GetExistingKeys(IOrganizationService svc, Guid invoiceId)
