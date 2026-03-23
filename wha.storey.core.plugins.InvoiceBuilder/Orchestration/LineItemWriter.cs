@@ -43,10 +43,21 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     currentKeys.Add(li.wha_LineItemKey);
             }
 
-            trace?.Trace($"[3a] Upserting {entities.Count} line items...");
-            sw.Restart();
-            BatchUpsert(svc, entities);
-            trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
+            bool isNewInvoice = existingKeys.Count == 0;
+            if (isNewInvoice)
+            {
+                trace?.Trace($"[3a] Creating {lineItems.Count} line items (new invoice)...");
+                sw.Restart();
+                BatchCreate(svc, lineItems);
+                trace?.Trace($"[3a] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
+            }
+            else
+            {
+                trace?.Trace($"[3a] Upserting {entities.Count} line items...");
+                sw.Restart();
+                BatchUpsert(svc, entities);
+                trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
+            }
 
             // Delete line items that existed before but are no longer in the current batch
             var orphanIds = new List<Guid>();
@@ -298,6 +309,22 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     dict[key] = e.Id;
             }
             return dict;
+        }
+
+        private static void BatchCreate(IOrganizationService svc, IReadOnlyList<WHa_InvoiceLineItem> lineItems)
+        {
+            for (int i = 0; i < lineItems.Count; i += BatchSize)
+            {
+                var batch = new OrganizationRequestCollection();
+                for (int j = i; j < lineItems.Count && j < i + BatchSize; j++)
+                    batch.Add(new CreateRequest { Target = lineItems[j] });
+
+                svc.Execute(new ExecuteMultipleRequest
+                {
+                    Requests = batch,
+                    Settings = new ExecuteMultipleSettings { ContinueOnError = false, ReturnResponses = false }
+                });
+            }
         }
 
         private static void BatchUpsert(IOrganizationService svc, IList<Entity> entities)

@@ -46,20 +46,27 @@ class Program
 
         Console.WriteLine("Connected to Dataverse");
 
-        //Guid companyGuid = Guid.Parse("c4582553-bdf6-f011-8406-000d3a1b93dd");
+        Guid companyGuid = Guid.Parse("6059b412-5ef5-f011-8406-7ced8d1f3c43");
 
 
         //TEST INPUTS — change these to test different accounts/month
         //Guid companyGuid = Guid.Parse("4e96e2cb-da07-f111-8406-6045bdd5fe9f");//Vanda Pharma LLC TEST
         //Guid companyGuid = Guid.Parse("c3582553-bdf6-f011-8406-000d3a1b93dd");//AbbVie LLC DEV
-        Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
+        //Guid companyGuid = Guid.Parse("89b42953-bdf6-f011-8406-000d3a181ddb");//Solaray LLC DEV
         //Guid companyGuid = Guid.Parse("d0bc87ca-da07-f111-8407-6045bdd8c4a0");//Solaray Test
         //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
         //Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
         //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
-        var  dateRun        = new DateTime(2026, 05, 04);  // any date within the target month
+        var  dateRun        = new DateTime(2025, 08, 04);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
+        bool batchMode      = false;  // true = run all accounts (customertypecode=3, wha_statuscode=0)
+
+        if (batchMode)
+        {
+            RunBatch(serviceClient, dateRun);
+            return;
+        }
 
         if (simulatePlugin)
         {
@@ -174,6 +181,62 @@ class Program
         Console.WriteLine($"  ─────────────────────────────");
         Console.WriteLine($"  Grand Total: {grandTotal,10:C}");
         Console.WriteLine("===================================================");
+    }
+
+    static void RunBatch(IOrganizationService svc, DateTime dateRun)
+    {
+        Console.WriteLine("=== BATCH MODE ===");
+        Console.WriteLine($"Run date: {dateRun:yyyy-MM-dd}");
+
+        var accounts = GetBatchAccounts(svc);
+        Console.WriteLine($"Accounts found: {accounts.Count}");
+        Console.WriteLine();
+
+        int success = 0, failed = 0;
+        var totalSw = Stopwatch.StartNew();
+
+        foreach (var (id, name) in accounts)
+        {
+            Console.WriteLine($"── {name} ({id}) ──");
+            try
+            {
+                SimulateGeneratePlugin(svc, id, dateRun);
+                success++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  ERROR: {ex.Message}");
+                failed++;
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine("=== BATCH COMPLETE ===");
+        Console.WriteLine($"  Total:   {accounts.Count}");
+        Console.WriteLine($"  Success: {success}");
+        Console.WriteLine($"  Failed:  {failed}");
+        Console.WriteLine($"  Run Time: {totalSw.Elapsed.TotalSeconds:F2}s");
+        Console.WriteLine("======================");
+    }
+
+    static List<(Guid Id, string Name)> GetBatchAccounts(IOrganizationService svc)
+    {
+        var qe = new Microsoft.Xrm.Sdk.Query.QueryExpression("account")
+        {
+            ColumnSet = new Microsoft.Xrm.Sdk.Query.ColumnSet("accountid", "name"),
+            Criteria  = new Microsoft.Xrm.Sdk.Query.FilterExpression(Microsoft.Xrm.Sdk.Query.LogicalOperator.And)
+            {
+                Conditions =
+                {
+                    new Microsoft.Xrm.Sdk.Query.ConditionExpression("customertypecode", Microsoft.Xrm.Sdk.Query.ConditionOperator.Equal, 3),
+                    new Microsoft.Xrm.Sdk.Query.ConditionExpression("wha_statuscode",   Microsoft.Xrm.Sdk.Query.ConditionOperator.Equal, 0)
+                }
+            }
+        };
+
+        return svc.RetrieveMultiple(qe).Entities
+            .Select(e => (e.Id, e.GetAttributeValue<string>("name") ?? e.Id.ToString()))
+            .ToList();
     }
 
     class ConsoleTracingService : Microsoft.Xrm.Sdk.ITracingService
