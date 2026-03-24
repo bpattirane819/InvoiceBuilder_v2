@@ -31,77 +31,113 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 if (currency != null) li.TransactionCurrencyId = currency;
             }
 
-            // === DELETE + CREATE STRATEGY ===
-            int deleted = 0;
-            if (invoiceId != Guid.Empty)
+            int deleted = 0, created = 0;
+
+            if (invoiceId == Guid.Empty)
             {
-                trace?.Trace("[3a] Deleting existing line items...");
+                // Brand new invoice — create everything
+                trace?.Trace($"[3a] Creating {lineItems.Count} line items (new invoice)...");
                 sw.Restart();
-                deleted = DeleteExistingLineItems(svc, invoiceId);
-                trace?.Trace($"[3a] Done — {deleted} deleted in {sw.Elapsed.TotalSeconds:F2}s");
+                BatchCreate(svc, lineItems);
+                created = lineItems.Count;
+                trace?.Trace($"[3a] Done — {created} created in {sw.Elapsed.TotalSeconds:F2}s");
+            }
+            else
+            {
+                // === SMART WRITE STRATEGY ===
+                // Rents: change detection — only touch what changed
+                // Non-rent (fees/discounts/credits): delete existing + create new
+
+                // 1. Fetch existing rent line items (key → id + amount)
+                var existingRents = GetExistingRentLineItems(svc, invoiceId);
+
+                var createRents      = new List<WHa_InvoiceLineItem>();
+                var upsertRents     = new List<WHa_InvoiceLineItem>();
+                var rentIdsToDelete = new List<Guid>();
+                var nonRentItems    = new List<WHa_InvoiceLineItem>();
+                var newRentKeys     = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var li in lineItems)
+                {
+                    if (!string.Equals(li.wha_SourceType, "Rent", StringComparison.OrdinalIgnoreCase))
+                    {
+                        nonRentItems.Add(li);
+                        continue;
+                    }
+                    if (string.IsNullOrWhiteSpace(li.wha_LineItemKey)) continue;
+                    newRentKeys.Add(li.wha_LineItemKey);
+
+                    if (!existingRents.TryGetValue(li.wha_LineItemKey, out var existing))
+                        createRents.Add(li);
+                    else if ((li.wha_totallineitemamount?.Value ?? 0m) != existing.Amount)
+                        upsertRents.Add(li);
+                    // else: unchanged — skip
+                }
+
+                foreach (var kvp in existingRents)
+                    if (!newRentKeys.Contains(kvp.Key))
+                        rentIdsToDelete.Add(kvp.Value.Id);
+
+                int unchanged = existingRents.Count - upsertRents.Count - rentIdsToDelete.Count;
+                trace?.Trace($"[3a] Rent analysis: New={createRents.Count}  Changed={upsertRents.Count}  Removed={rentIdsToDelete.Count}  Unchanged={unchanged}");
+
+                // 2. Fetch existing non-rent IDs (fees/discounts/credits)
+                var nonRentIdsToDelete = GetExistingNonRentLineItemIds(svc, invoiceId);
+
+                // 3. Delete: removed rents + all existing non-rent items
+                var toDeleteAll = new List<Guid>(rentIdsToDelete.Count + nonRentIdsToDelete.Count);
+                toDeleteAll.AddRange(rentIdsToDelete);
+                toDeleteAll.AddRange(nonRentIdsToDelete);
+                if (toDeleteAll.Count > 0)
+                {
+                    trace?.Trace($"[3b] Deleting {rentIdsToDelete.Count} removed rent(s) + {nonRentIdsToDelete.Count} non-rent item(s)...");
+                    sw.Restart();
+                    BatchDeleteById(svc, WHa_InvoiceLineItem.EntityLogicalName, toDeleteAll);
+                    deleted = toDeleteAll.Count;
+                    trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
+                }
+
+                // 4. Create new rents
+                if (createRents.Count > 0)
+                {
+                    trace?.Trace($"[3c] Creating {createRents.Count} new rent(s)...");
+                    sw.Restart();
+                    BatchCreate(svc, createRents);
+                    created += createRents.Count;
+                    trace?.Trace($"[3c] Done in {sw.Elapsed.TotalSeconds:F2}s");
+                }
+
+                // 5. Upsert changed rents
+                if (upsertRents.Count > 0)
+                {
+                    trace?.Trace($"[3d] Upserting {upsertRents.Count} changed rent(s)...");
+                    sw.Restart();
+                    var entities = new List<Entity>(upsertRents.Count);
+                    foreach (var li in upsertRents)
+                        entities.Add(ToLateBoundForUpsert(li));
+                    BatchUpsert(svc, entities);
+                    created += upsertRents.Count;
+                    trace?.Trace($"[3d] Done in {sw.Elapsed.TotalSeconds:F2}s");
+                }
+
+                // 6. Create non-rent items (fees/discounts/credits)
+                if (nonRentItems.Count > 0)
+                {
+                    trace?.Trace($"[3e] Creating {nonRentItems.Count} fee/discount/credit item(s)...");
+                    sw.Restart();
+                    BatchCreate(svc, nonRentItems);
+                    created += nonRentItems.Count;
+                    trace?.Trace($"[3e] Done in {sw.Elapsed.TotalSeconds:F2}s");
+                }
             }
 
-            trace?.Trace($"[3b] Creating {lineItems.Count} line items...");
-            sw.Restart();
-            BatchCreate(svc, lineItems);
-            trace?.Trace($"[3b] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
-
-            // === UPSERT STRATEGY (commented out) ===
-            // To revert: uncomment this block and comment out the DELETE + CREATE block above.
-            //
-            //var existingKeys = invoiceId != Guid.Empty
-            //    ? GetExistingKeys(svc, invoiceId)
-            //    : new Dictionary<string, Guid>();
-            //var entities    = new List<Entity>(lineItems.Count);
-            //var currentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            //foreach (var li in lineItems)
-            //{
-            //    entities.Add(ToLateBoundForUpsert(li));
-            //    if (!string.IsNullOrWhiteSpace(li.wha_LineItemKey))
-            //        currentKeys.Add(li.wha_LineItemKey);
-            //}
-            //bool isNewInvoice = existingKeys.Count == 0;
-            //if (isNewInvoice)
-            //{
-            //    trace?.Trace($"[3a] Creating {lineItems.Count} line items (new invoice)...");
-            //    sw.Restart();
-            //    BatchCreate(svc, lineItems);
-            //    trace?.Trace($"[3a] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
-            //}
-            //else
-            //{
-            //    trace?.Trace($"[3a] Upserting {entities.Count} line items...");
-            //    sw.Restart();
-            //    BatchUpsert(svc, entities);
-            //    trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
-            //}
-            //var orphanIds = new List<Guid>();
-            //foreach (var kvp in existingKeys)
-            //    if (!currentKeys.Contains(kvp.Key))
-            //        orphanIds.Add(kvp.Value);
-            //if (invoiceId != Guid.Empty)
-            //{
-            //    var keylessIds = GetKeylessLineItemIds(svc, invoiceId);
-            //    foreach (var id in keylessIds)
-            //        orphanIds.Add(id);
-            //}
-            //int deleted = 0;
-            //if (orphanIds.Count > 0)
-            //{
-            //    trace?.Trace($"[3b] Deleting {orphanIds.Count} orphaned line item(s)...");
-            //    sw.Restart();
-            //    BatchDeleteById(svc, WHa_InvoiceLineItem.EntityLogicalName, orphanIds);
-            //    deleted = orphanIds.Count;
-            //    trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
-            //}
-
-            trace?.Trace("[3c] Updating invoice total...");
+            trace?.Trace("[3f] Updating invoice total...");
             sw.Restart();
             if (invoiceId != Guid.Empty)
                 UpdateInvoiceTotal(svc, invoiceId, lineItems);
-            trace?.Trace($"[3c] Done in {sw.Elapsed.TotalSeconds:F2}s");
+            trace?.Trace($"[3f] Done in {sw.Elapsed.TotalSeconds:F2}s");
 
-            return new WriteResult { Created = lineItems.Count, Deleted = deleted };
+            return new WriteResult { Created = created, Deleted = deleted };
         }
 
         // Deletes all existing line items for the given invoice, paged in batches of 2500.
@@ -278,8 +314,35 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             update["wha_totalamount"] = new Money(total);
             svc.Update(update);
         }
-        //Cleans up old data that didn't have wha_lineitemkey populated (pre-upsert implementation) to prevent duplicates from accumulating until next upsert run.
-        private static List<Guid> GetKeylessLineItemIds(IOrganizationService svc, Guid invoiceId)
+        private static Dictionary<string, (Guid Id, decimal Amount)> GetExistingRentLineItems(IOrganizationService svc, Guid invoiceId)
+        {
+            var qe = new QueryExpression(WHa_InvoiceLineItem.EntityLogicalName)
+            {
+                ColumnSet = new ColumnSet(
+                    WHa_InvoiceLineItem.Fields.wha_LineItemKey,
+                    WHa_InvoiceLineItem.Fields.wha_totallineitemamount),
+                Criteria = new FilterExpression(LogicalOperator.And)
+                {
+                    Conditions =
+                    {
+                        new ConditionExpression(WHa_InvoiceLineItem.Fields.wha_invoiceid,  ConditionOperator.Equal, invoiceId),
+                        new ConditionExpression(WHa_InvoiceLineItem.Fields.wha_SourceType, ConditionOperator.Equal, "Rent")
+                    }
+                }
+            };
+
+            var results = svc.RetrieveMultiple(qe);
+            var rentLineItemByKey = new Dictionary<string, (Guid Id, decimal Amount)>(results.Entities.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var e in results.Entities)
+            {
+                var key = e.GetAttributeValue<string>(WHa_InvoiceLineItem.Fields.wha_LineItemKey);
+                if (string.IsNullOrWhiteSpace(key)) continue;
+                rentLineItemByKey[key] = (e.Id, e.GetAttributeValue<Money>(WHa_InvoiceLineItem.Fields.wha_totallineitemamount)?.Value ?? 0m);
+            }
+            return rentLineItemByKey;
+        }
+
+        private static List<Guid> GetExistingNonRentLineItemIds(IOrganizationService svc, Guid invoiceId)
         {
             var qe = new QueryExpression(WHa_InvoiceLineItem.EntityLogicalName)
             {
@@ -288,8 +351,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 {
                     Conditions =
                     {
-                        new ConditionExpression("wha_invoiceid",    ConditionOperator.Equal, invoiceId),
-                        new ConditionExpression("wha_lineitemkey",  ConditionOperator.Null)
+                        new ConditionExpression(WHa_InvoiceLineItem.Fields.wha_invoiceid,  ConditionOperator.Equal,    invoiceId),
+                        new ConditionExpression(WHa_InvoiceLineItem.Fields.wha_SourceType, ConditionOperator.NotEqual, "Rent")
                     }
                 }
             };
@@ -299,28 +362,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             foreach (var e in results.Entities)
                 ids.Add(e.Id);
             return ids;
-        }
-
-        private static Dictionary<string, Guid> GetExistingKeys(IOrganizationService svc, Guid invoiceId)
-        {
-            var qe = new QueryExpression(WHa_InvoiceLineItem.EntityLogicalName)
-            {
-                ColumnSet = new ColumnSet(WHa_InvoiceLineItem.Fields.wha_LineItemKey),
-                Criteria  = new FilterExpression
-                {
-                    Conditions = { new ConditionExpression("wha_invoiceid", ConditionOperator.Equal, invoiceId) }
-                }
-            };
-
-            var results = svc.RetrieveMultiple(qe);
-            var dict    = new Dictionary<string, Guid>(results.Entities.Count, StringComparer.OrdinalIgnoreCase);
-            foreach (var e in results.Entities)
-            {
-                var key = e.GetAttributeValue<string>(WHa_InvoiceLineItem.Fields.wha_LineItemKey);
-                if (!string.IsNullOrWhiteSpace(key))
-                    dict[key] = e.Id;
-            }
-            return dict;
         }
 
         private static void BatchCreate(IOrganizationService svc, IReadOnlyList<WHa_InvoiceLineItem> lineItems)
