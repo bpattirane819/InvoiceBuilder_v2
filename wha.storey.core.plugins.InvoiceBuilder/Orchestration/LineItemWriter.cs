@@ -16,7 +16,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
     {
         private const int BatchSize = 1000;
 
-        // Upserts line items by alternate key (wha_lineitemkey), deletes orphans, then stamps the invoice total.
         public static WriteResult WriteLineItems(
             IOrganizationService svc,
             Guid invoiceId,
@@ -26,62 +25,75 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            // Snapshot existing keys before upserting so we can detect orphans afterward
-            var existingKeys = invoiceId != Guid.Empty
-                ? GetExistingKeys(svc, invoiceId)
-                : new Dictionary<string, Guid>();
-
-            var entities    = new List<Entity>(lineItems.Count);
-            var currentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
             foreach (var li in lineItems)
             {
                 li.wha_Quantity = 1;
                 if (currency != null) li.TransactionCurrencyId = currency;
-                entities.Add(ToLateBoundForUpsert(li));
-                if (!string.IsNullOrWhiteSpace(li.wha_LineItemKey))
-                    currentKeys.Add(li.wha_LineItemKey);
             }
 
-            bool isNewInvoice = existingKeys.Count == 0;
-            if (isNewInvoice)
-            {
-                trace?.Trace($"[3a] Creating {lineItems.Count} line items (new invoice)...");
-                sw.Restart();
-                BatchCreate(svc, lineItems);
-                trace?.Trace($"[3a] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
-            }
-            else
-            {
-                trace?.Trace($"[3a] Upserting {entities.Count} line items...");
-                sw.Restart();
-                BatchUpsert(svc, entities);
-                trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
-            }
-
-            // Delete line items that existed before but are no longer in the current batch
-            var orphanIds = new List<Guid>();
-            foreach (var kvp in existingKeys)
-                if (!currentKeys.Contains(kvp.Key))
-                    orphanIds.Add(kvp.Value);
-
-            // Also delete any pre-upsert records that have no wha_lineitemkey (NULL key = created before upsert was implemented)
+            // === DELETE + CREATE STRATEGY ===
+            int deleted = 0;
             if (invoiceId != Guid.Empty)
             {
-                var keylessIds = GetKeylessLineItemIds(svc, invoiceId);
-                foreach (var id in keylessIds)
-                    orphanIds.Add(id);
+                trace?.Trace("[3a] Deleting existing line items...");
+                sw.Restart();
+                deleted = DeleteExistingLineItems(svc, invoiceId);
+                trace?.Trace($"[3a] Done — {deleted} deleted in {sw.Elapsed.TotalSeconds:F2}s");
             }
 
-            int deleted = 0;
-            if (orphanIds.Count > 0)
-            {
-                trace?.Trace($"[3b] Deleting {orphanIds.Count} orphaned line item(s)...");
-                sw.Restart();
-                BatchDeleteById(svc, WHa_InvoiceLineItem.EntityLogicalName, orphanIds);
-                deleted = orphanIds.Count;
-                trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
-            }
+            trace?.Trace($"[3b] Creating {lineItems.Count} line items...");
+            sw.Restart();
+            BatchCreate(svc, lineItems);
+            trace?.Trace($"[3b] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
+
+            // === UPSERT STRATEGY (commented out) ===
+            // To revert: uncomment this block and comment out the DELETE + CREATE block above.
+            //
+            //var existingKeys = invoiceId != Guid.Empty
+            //    ? GetExistingKeys(svc, invoiceId)
+            //    : new Dictionary<string, Guid>();
+            //var entities    = new List<Entity>(lineItems.Count);
+            //var currentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            //foreach (var li in lineItems)
+            //{
+            //    entities.Add(ToLateBoundForUpsert(li));
+            //    if (!string.IsNullOrWhiteSpace(li.wha_LineItemKey))
+            //        currentKeys.Add(li.wha_LineItemKey);
+            //}
+            //bool isNewInvoice = existingKeys.Count == 0;
+            //if (isNewInvoice)
+            //{
+            //    trace?.Trace($"[3a] Creating {lineItems.Count} line items (new invoice)...");
+            //    sw.Restart();
+            //    BatchCreate(svc, lineItems);
+            //    trace?.Trace($"[3a] Done — {lineItems.Count} created in {sw.Elapsed.TotalSeconds:F2}s");
+            //}
+            //else
+            //{
+            //    trace?.Trace($"[3a] Upserting {entities.Count} line items...");
+            //    sw.Restart();
+            //    BatchUpsert(svc, entities);
+            //    trace?.Trace($"[3a] Done — {entities.Count} upserted in {sw.Elapsed.TotalSeconds:F2}s");
+            //}
+            //var orphanIds = new List<Guid>();
+            //foreach (var kvp in existingKeys)
+            //    if (!currentKeys.Contains(kvp.Key))
+            //        orphanIds.Add(kvp.Value);
+            //if (invoiceId != Guid.Empty)
+            //{
+            //    var keylessIds = GetKeylessLineItemIds(svc, invoiceId);
+            //    foreach (var id in keylessIds)
+            //        orphanIds.Add(id);
+            //}
+            //int deleted = 0;
+            //if (orphanIds.Count > 0)
+            //{
+            //    trace?.Trace($"[3b] Deleting {orphanIds.Count} orphaned line item(s)...");
+            //    sw.Restart();
+            //    BatchDeleteById(svc, WHa_InvoiceLineItem.EntityLogicalName, orphanIds);
+            //    deleted = orphanIds.Count;
+            //    trace?.Trace($"[3b] Done in {sw.Elapsed.TotalSeconds:F2}s");
+            //}
 
             trace?.Trace("[3c] Updating invoice total...");
             sw.Restart();
@@ -89,7 +101,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 UpdateInvoiceTotal(svc, invoiceId, lineItems);
             trace?.Trace($"[3c] Done in {sw.Elapsed.TotalSeconds:F2}s");
 
-            return new WriteResult { Created = entities.Count, Deleted = deleted };
+            return new WriteResult { Created = lineItems.Count, Deleted = deleted };
         }
 
         // Deletes all existing line items for the given invoice, paged in batches of 2500.
