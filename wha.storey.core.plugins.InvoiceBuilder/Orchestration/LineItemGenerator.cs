@@ -134,7 +134,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             if (string.Equals(logicalName, WHa_Fee.EntityLogicalName,      StringComparison.OrdinalIgnoreCase)) return "Fee";
             if (string.Equals(logicalName, WHa_Discount.EntityLogicalName, StringComparison.OrdinalIgnoreCase)) return "Discount";
             if (string.Equals(logicalName, WHa_Credit.EntityLogicalName,   StringComparison.OrdinalIgnoreCase)) return "Credit";
-            if (string.Equals(logicalName, WHa_Space.EntityLogicalName,    StringComparison.OrdinalIgnoreCase)) return "Tax";
             return logicalName;
         }
 
@@ -206,13 +205,13 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 var li = new WHa_InvoiceLineItem
                 {
                     wha_invoiceid           = new EntityReference(WHa_Invoice.EntityLogicalName, invoiceId),
-                    wha_SourceId            = new EntityReference(WHa_Space.EntityLogicalName, rent.SpaceId),
+                    wha_SourceId            = new EntityReference(WHa_Rent.EntityLogicalName, rent.RentId),
                     wha_Quantity            = 1,
                     wha_UnitPrice           = new Money(taxAmount),
                     wha_totallineitemamount = new Money(taxAmount),
                     wha_InvoiceLineItemName = name,
                     wha_SourceType          = "Tax",
-                    wha_LineItemKey         = $"{invoiceId}|{WHa_Space.EntityLogicalName}|{rent.SpaceId}|Tax"
+                    wha_LineItemKey         = $"{invoiceId}|{WHa_Rent.EntityLogicalName}|{rent.RentId}|Tax"
                 };
 
                 if (!string.IsNullOrWhiteSpace(rent.SpaceName)) li.wha_SpaceName   = rent.SpaceName;
