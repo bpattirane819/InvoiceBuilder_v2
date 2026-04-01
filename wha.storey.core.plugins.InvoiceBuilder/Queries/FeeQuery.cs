@@ -65,6 +65,10 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy,    ConditionOperator.Equal, accountId);
             spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_SpaceStatus, ConditionOperator.Equal, 1); // 1 = Rented
 
+            var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
+            facilityLink.EntityAlias = "fa";
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_ZipPostalCode);
+
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
@@ -83,6 +87,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_Name,
                     WHa_Fee.Fields.wha_Amount,
                     WHa_Fee.Fields.wha_FeeForId,
+                    WHa_Fee.Fields.wha_PercentageofRent,
                     WHa_Fee.Fields.CreatedOn),
                 Criteria = new FilterExpression(LogicalOperator.And)
             };
@@ -98,6 +103,10 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
             spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+
+            var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
+            facilityLink.EntityAlias = "fa";
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_ZipPostalCode);
 
             return MapFees(svc.RetrieveMultiple(qe));
         }
@@ -157,12 +166,14 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 fees.Add(new FeeCharge
                 {
-                    FeeId         = e.Id,
-                    Amount        = amount ?? 0m,
-                    FeeName       = feeName,
-                    IsSpaceLevel  = isSpaceLevel,
-                    SpaceName     = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,
-                    SpaceUnitName = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null
+                    FeeId            = e.Id,
+                    SpaceId          = isSpaceLevel ? (feeForRef?.Id ?? Guid.Empty) : Guid.Empty,
+                    Amount           = amount ?? 0m,
+                    PercentageOfRent = pct ?? 0m,
+                    FeeName          = feeName,
+                    IsSpaceLevel     = isSpaceLevel,
+                    SpaceName        = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,
+                    SpaceUnitName    = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null
                 });
             }
             return fees;

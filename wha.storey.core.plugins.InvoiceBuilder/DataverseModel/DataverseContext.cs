@@ -148,6 +148,28 @@ namespace DataverseModel
 				return this.CreateQuery<DataverseModel.WHa_Space>();
 			}
 		}
+		
+		/// <summary>
+		/// Gets a binding to the set of all <see cref="DataverseModel.WHa_TaxableStates"/> entities.
+		/// </summary>
+		public System.Linq.IQueryable<DataverseModel.WHa_TaxableStates> WHa_TaxableStatesSet
+		{
+			get
+			{
+				return this.CreateQuery<DataverseModel.WHa_TaxableStates>();
+			}
+		}
+		
+		/// <summary>
+		/// Gets a binding to the set of all <see cref="DataverseModel.WHa_TaxZipCodes"/> entities.
+		/// </summary>
+		public System.Linq.IQueryable<DataverseModel.WHa_TaxZipCodes> WHa_TaxZipCodesSet
+		{
+			get
+			{
+				return this.CreateQuery<DataverseModel.WHa_TaxZipCodes>();
+			}
+		}
 	}
 	
 	/// <summary>

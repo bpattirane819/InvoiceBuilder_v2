@@ -58,7 +58,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";
-            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_FacilityName);
+            facilityLink.Columns     = new ColumnSet(WHa_Facility.Fields.wha_FacilityName, WHa_Facility.Fields.wha_ZipPostalCode);
 
             var results = svc.RetrieveMultiple(qe);
             var charges = new List<RentCharge>(results.Entities.Count);
@@ -69,17 +69,30 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
                 charges.Add(new RentCharge
                 {
-                    RentId       = e.Id,
-                    SpaceId      = e.GetAttributeValue<EntityReference>(WHa_Rent.Fields.wha_Space)?.Id ?? Guid.Empty,
-                    Amount       = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_CustomerRentAmount)?.Value ?? 0m,
-                    RentName     = e.GetAttributeValue<string>(WHa_Rent.Fields.wha_RentName) ?? "",
-                    FacilityName = e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string ?? "",
-                    SpaceName    = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",
-                    UnitName     = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string ?? ""
+                    RentId          = e.Id,
+                    SpaceId         = e.GetAttributeValue<EntityReference>(WHa_Rent.Fields.wha_Space)?.Id ?? Guid.Empty,
+                    Amount          = e.GetAttributeValue<Money>(WHa_Rent.Fields.wha_CustomerRentAmount)?.Value ?? 0m,
+                    RentName        = e.GetAttributeValue<string>(WHa_Rent.Fields.wha_RentName) ?? "",
+                    FacilityName    = e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_FacilityName)?.Value as string ?? "",
+                    FacilityZipCode = e.GetAttributeValue<AliasedValue>("fa." + WHa_Facility.Fields.wha_ZipPostalCode)?.Value as string ?? "",
+                    SpaceName       = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",
+                    UnitName        = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string ?? ""
                 });
             }
 
-            return charges;
+            // Deduplicate: a space may have an expiring rent and a new rent both active in the
+            // same billing period (e.g. old runs 9/11/2024–4/11/2026, new starts 4/11/2026).
+            // Results are already sorted by StartDate DESC, so first-seen per SpaceId = most recent.
+            var seen    = new HashSet<Guid>();
+            var deduped = new List<RentCharge>(charges.Count);
+            foreach (var c in charges)
+            {
+                // SpaceId == Guid.Empty means no space reference — always keep
+                if (c.SpaceId == Guid.Empty || seen.Add(c.SpaceId))
+                    deduped.Add(c);
+            }
+
+            return deduped;
         }
     }
 }

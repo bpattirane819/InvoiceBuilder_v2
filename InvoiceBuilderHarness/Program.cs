@@ -57,7 +57,7 @@ class Program
         //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
         //Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
         //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
-        var  dateRun        = new DateTime(2026, 02, 04);  // any date within the target month
+        var  dateRun        = new DateTime(2026, 08, 04);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
         bool batchMode      = false;  // true = run all accounts (customertypecode=3, wha_statuscode=0)
@@ -82,7 +82,8 @@ class Program
         Console.WriteLine($"Period:  {periodStart:yyyy-MM-dd} - {periodEnd:yyyy-MM-dd}");
         Console.WriteLine();
 
-        var lines = LineItemGenerator.Generate(serviceClient, Guid.Empty, companyGuid, periodStart, periodEnd, currency);
+        var consoleTrace = new ConsoleTracingService();
+        var lines = LineItemGenerator.Generate(serviceClient, Guid.Empty, companyGuid, periodStart, periodEnd, currency, consoleTrace);
         PrintLineItems(lines, periodStart, periodEnd, companyGuid);
     }
 
@@ -116,7 +117,7 @@ class Program
         Console.WriteLine();
         Console.WriteLine("[2] Generating line items...");
         sw.Restart();
-        var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, companyGuid, periodStart, periodEnd, currency);
+        var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, companyGuid, periodStart, periodEnd, currency, consoleTrace);
         Console.WriteLine($"    Done in {sw.Elapsed.TotalSeconds:F2}s — {lines.Count} line item(s) generated");
 
         // Step 3 — Write
@@ -152,12 +153,14 @@ class Program
         var fees      = lineItems.Where(li => li.wha_SourceType == "Fee").ToList();
         var discounts = lineItems.Where(li => li.wha_SourceType == "Discount").ToList();
         var credits   = lineItems.Where(li => li.wha_SourceType == "Credit").ToList();
+        var taxes     = lineItems.Where(li => li.wha_SourceType == "Tax").ToList();
 
         var rentTotal     = rents.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
         var feeTotal      = fees.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
         var discountTotal = discounts.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
         var creditTotal   = credits.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
-        var grandTotal    = rentTotal + feeTotal - discountTotal - creditTotal;
+        var taxTotal      = taxes.Sum(li => li.wha_totallineitemamount?.Value ?? 0m);
+        var grandTotal    = rentTotal + feeTotal - discountTotal - creditTotal + taxTotal;
 
         Console.WriteLine();
         Console.WriteLine("===================================================");
@@ -172,12 +175,14 @@ class Program
         PrintGroup("FEES", fees);
         PrintGroup("DISCOUNTS", discounts);
         PrintGroup("CREDITS", credits);
+        if (taxes.Count > 0) PrintGroup("TAXES", taxes);
 
         Console.WriteLine();
         Console.WriteLine($"  Rents:       {rentTotal,10:C}");
         Console.WriteLine($"  Fees:        {feeTotal,10:C}");
         Console.WriteLine($"  Discounts:  -{discountTotal,9:C}");
         Console.WriteLine($"  Credits:    -{creditTotal,9:C}");
+        Console.WriteLine($"  Taxes:       {taxTotal,10:C}");
         Console.WriteLine($"  ─────────────────────────────");
         Console.WriteLine($"  Grand Total: {grandTotal,10:C}");
         Console.WriteLine("===================================================");

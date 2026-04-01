@@ -120,22 +120,41 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     trace?.Trace($"[3d] Done in {sw.Elapsed.TotalSeconds:F2}s");
                 }
 
-                // 6. Create non-rent items (fees/discounts/credits)
-                if (nonRentItems.Count > 0)
+                // 6. Create non-rent items (fees/discounts/credits/taxes)
+                var feeItems = new List<WHa_InvoiceLineItem>();
+                var taxItems = new List<WHa_InvoiceLineItem>();
+                foreach (var li in nonRentItems)
                 {
-                    trace?.Trace($"[3e] Creating {nonRentItems.Count} fee/discount/credit item(s)...");
+                    if (string.Equals(li.wha_SourceType, "Tax", StringComparison.OrdinalIgnoreCase))
+                        taxItems.Add(li);
+                    else
+                        feeItems.Add(li);
+                }
+
+                if (feeItems.Count > 0)
+                {
+                    trace?.Trace($"[3e] Creating {feeItems.Count} fee/discount/credit item(s)...");
                     sw.Restart();
-                    BatchCreate(svc, nonRentItems);
-                    created += nonRentItems.Count;
+                    BatchCreate(svc, feeItems);
+                    created += feeItems.Count;
                     trace?.Trace($"[3e] Done in {sw.Elapsed.TotalSeconds:F2}s");
+                }
+
+                if (taxItems.Count > 0)
+                {
+                    trace?.Trace($"[3f] Creating {taxItems.Count} tax item(s)...");
+                    sw.Restart();
+                    BatchCreate(svc, taxItems);
+                    created += taxItems.Count;
+                    trace?.Trace($"[3f] Done in {sw.Elapsed.TotalSeconds:F2}s");
                 }
             }
 
-            trace?.Trace("[3f] Updating invoice total...");
+            trace?.Trace("[3g] Updating invoice total...");
             sw.Restart();
             if (invoiceId != Guid.Empty)
                 UpdateInvoiceTotal(svc, invoiceId, lineItems);
-            trace?.Trace($"[3f] Done in {sw.Elapsed.TotalSeconds:F2}s");
+            trace?.Trace($"[3g] Done in {sw.Elapsed.TotalSeconds:F2}s");
 
             return new WriteResult { Created = created, Deleted = deleted };
         }

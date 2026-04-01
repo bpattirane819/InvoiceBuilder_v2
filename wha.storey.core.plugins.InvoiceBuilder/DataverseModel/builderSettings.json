@@ -130,7 +130,9 @@
     "wha_invoice",
     "wha_invoicelineitem",
     "wha_rent",
-    "wha_space"
+    "wha_space",
+    "wha_taxablestates",
+    "wha_taxzipcodes"
   ],
   "entityTypesFolder": "Entities",
   "generateActions": true,

@@ -49,7 +49,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     trace.Trace($"[1] Done — invoice: {resolution.InvoiceId}");
 
                 trace.Trace("[2] Generating line items...");
-                var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, accountId, periodStart, periodEnd, currency);
+                var lines = LineItemGenerator.Generate(svc, resolution.InvoiceId, accountId, periodStart, periodEnd, currency, trace);
                 trace.Trace($"[2] Done — {lines.Count} line item(s) generated");
 
                 trace.Trace("[3] Writing line items...");

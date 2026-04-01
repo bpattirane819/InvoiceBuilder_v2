@@ -6,9 +6,9 @@ using Microsoft.Xrm.Sdk;
 namespace wha.storey.core.plugins.InvoiceBuilder
 {
     /// <summary>
-    /// Runs all 3 queries and builds WHa_InvoiceLineItem records ready to write.
-    /// Total Dataverse round trips: 4 (1 space pre-query + 1 fee + 1 discount + 1 rent),
-    /// regardless of how many spaces or charges the customer has.
+    /// Runs all queries and builds WHa_InvoiceLineItem records ready to write.
+    /// Total Dataverse round trips: 5 (1 fee recurring + 1 fee one-time + 1 fee account +
+    /// 1 discount + 1 credit + 1 rent + 1 tax zip codes).
     /// </summary>
     public static class LineItemGenerator
     {
@@ -18,12 +18,14 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             Guid accountId,
             DateTime periodStart,
             DateTime periodEnd,
-            EntityReference currency)
+            EntityReference currency,
+            ITracingService trace = null)
         {
             var items = new List<WHa_InvoiceLineItem>();
 
             // 1. Fees
-            foreach (var fee in FeeQuery.GetFees(svc, accountId, periodStart, periodEnd))
+            var fees = FeeQuery.GetFees(svc, accountId, periodStart, periodEnd);
+            foreach (var fee in fees)
             {
                 if (fee.FeeId == Guid.Empty) continue;
                 items.Add(Build(invoiceId, currency,
@@ -50,12 +52,28 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             }
 
             // 4. Rents
-            foreach (var rent in RentQuery.GetRents(svc, accountId, periodStart, periodEnd))
+            var rents = RentQuery.GetRents(svc, accountId, periodStart, periodEnd);
+            foreach (var rent in rents)
             {
                 if (rent.RentId == Guid.Empty) continue;
                 items.Add(Build(invoiceId, currency,
                     WHa_Rent.EntityLogicalName, rent.RentId, BuildName(rent.FacilityName, rent.UnitName),
                     rent.Amount, rent.SpaceName, rent.UnitName));
+            }
+
+            // 5. Taxes — 1 line item per taxable space
+            var taxRates = TaxQuery.GetTaxRateByZipCode(svc);
+            trace?.Trace($"[Tax] Taxable zip codes loaded: {taxRates.Count}");
+
+            if (taxRates.Count > 0)
+            {
+                var taxItems = BuildTaxLineItems(invoiceId, currency, rents, fees, taxRates, trace);
+                trace?.Trace($"[Tax] Tax line items generated: {taxItems.Count}");
+                items.AddRange(taxItems);
+            }
+            else
+            {
+                trace?.Trace("[Tax] Skipped — no taxable zip codes found in wha_taxzipcodes");
             }
 
             return items;
@@ -116,7 +134,95 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             if (string.Equals(logicalName, WHa_Fee.EntityLogicalName,      StringComparison.OrdinalIgnoreCase)) return "Fee";
             if (string.Equals(logicalName, WHa_Discount.EntityLogicalName, StringComparison.OrdinalIgnoreCase)) return "Discount";
             if (string.Equals(logicalName, WHa_Credit.EntityLogicalName,   StringComparison.OrdinalIgnoreCase)) return "Credit";
+            if (string.Equals(logicalName, WHa_Space.EntityLogicalName,    StringComparison.OrdinalIgnoreCase)) return "Tax";
             return logicalName;
+        }
+
+        private static readonly HashSet<string> TaxableFeeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Admin Fee", "Lock Fee", "On-boarding Fee", "Set Up Fee"
+        };
+
+        private static IReadOnlyList<WHa_InvoiceLineItem> BuildTaxLineItems(
+            Guid invoiceId,
+            EntityReference currency,
+            IReadOnlyList<RentCharge> rents,
+            IReadOnlyList<FeeCharge> fees,
+            Dictionary<string, decimal> taxRates,
+            ITracingService trace = null)
+        {
+            // Index rents by SpaceId — only spaces with a known zip can be taxed
+            var rentBySpace = new Dictionary<Guid, RentCharge>();
+            foreach (var rent in rents)
+            {
+                if (rent.SpaceId != Guid.Empty && !string.IsNullOrWhiteSpace(rent.FacilityZipCode))
+                    rentBySpace[rent.SpaceId] = rent;
+                else
+                    trace?.Trace($"[Tax] Skipping space {rent.SpaceId} — no facility zip code (facility may be missing zip)");
+            }
+
+            // Sum qualifying fee amounts per space.
+            // Fixed fees: use Amount directly.
+            // Percentage-of-rent fees: compute against the space's rent amount.
+            var taxableFeesBySpace = new Dictionary<Guid, decimal>();
+            foreach (var fee in fees)
+            {
+                if (!fee.IsSpaceLevel || fee.SpaceId == Guid.Empty) continue;
+                if (!TaxableFeeNames.Contains(fee.FeeName.Split('(')[0].Trim())) continue;
+
+                decimal feeAmount;
+                if (fee.Amount > 0m)
+                {
+                    feeAmount = fee.Amount;
+                }
+                else if (fee.PercentageOfRent > 0m && rentBySpace.TryGetValue(fee.SpaceId, out var rentForPct))
+                {
+                    feeAmount = fee.PercentageOfRent / 100m * rentForPct.Amount;
+                }
+                else continue;
+
+                if (taxableFeesBySpace.ContainsKey(fee.SpaceId))
+                    taxableFeesBySpace[fee.SpaceId] += feeAmount;
+                else
+                    taxableFeesBySpace[fee.SpaceId] = feeAmount;
+            }
+
+            var taxItems = new List<WHa_InvoiceLineItem>();
+            foreach (var rent in rentBySpace.Values)
+            {
+                if (!taxRates.TryGetValue(rent.FacilityZipCode.Trim(), out var rate) || rate == 0m)
+                {
+                    trace?.Trace($"[Tax] {BuildName(rent.FacilityName, rent.UnitName)} — zip '{rent.FacilityZipCode}' not in taxable zip codes, skipping");
+                    continue;
+                }
+
+                taxableFeesBySpace.TryGetValue(rent.SpaceId, out var feesBase);
+                var taxBase   = rent.Amount + feesBase;
+                var taxAmount = Math.Round(taxBase * (rate / 100m), 2, MidpointRounding.AwayFromZero);
+                if (taxAmount == 0m) continue;
+
+                var name = $"Sales Tax - {BuildName(rent.FacilityName, rent.UnitName)}";
+
+                var li = new WHa_InvoiceLineItem
+                {
+                    wha_invoiceid           = new EntityReference(WHa_Invoice.EntityLogicalName, invoiceId),
+                    wha_SourceId            = new EntityReference(WHa_Space.EntityLogicalName, rent.SpaceId),
+                    wha_Quantity            = 1,
+                    wha_UnitPrice           = new Money(taxAmount),
+                    wha_totallineitemamount = new Money(taxAmount),
+                    wha_InvoiceLineItemName = name,
+                    wha_SourceType          = "Tax",
+                    wha_LineItemKey         = $"{invoiceId}|{WHa_Space.EntityLogicalName}|{rent.SpaceId}|Tax"
+                };
+
+                if (!string.IsNullOrWhiteSpace(rent.SpaceName)) li.wha_SpaceName   = rent.SpaceName;
+                if (!string.IsNullOrWhiteSpace(rent.UnitName))  li.wha_SpaceNumber = rent.UnitName;
+                if (currency != null)                           li.TransactionCurrencyId = currency;
+
+                taxItems.Add(li);
+            }
+
+            return taxItems;
         }
     }
 }
