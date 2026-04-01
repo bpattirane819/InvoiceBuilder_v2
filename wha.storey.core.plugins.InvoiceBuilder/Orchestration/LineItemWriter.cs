@@ -300,14 +300,18 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             var terms   = account.GetAttributeValue<OptionSetValue>(Account.Fields.PaymentTermsCode);
             if (terms == null) return null;
 
+            int days;
             switch (terms.Value)
             {
-                case 1: return invoiceDate.AddDays(15);
-                case 2: return invoiceDate.AddDays(30);
-                case 3: return invoiceDate.AddDays(45);
-                case 4: return invoiceDate.AddDays(60);
+                case 1: days = 15; break;
+                case 2: days = 30; break;
+                case 3: days = 45; break;
+                case 4: days = 60; break;
                 default: return null;
             }
+
+            var due = invoiceDate.AddDays(days);
+            return new DateTime(due.Year, due.Month, due.Day, 12, 0, 0, DateTimeKind.Utc);
         }
 
         /// <summary>Calculates the invoice total from the line items and stamps it on the invoice.
