@@ -137,11 +137,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return logicalName;
         }
 
-        private static readonly HashSet<string> TaxableFeeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "Admin Fee", "Lock Fee", "On-boarding Fee", "Set Up Fee"
-        };
-
         private static IReadOnlyList<WHa_InvoiceLineItem> BuildTaxLineItems(
             Guid invoiceId,
             EntityReference currency,
@@ -167,7 +162,6 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             foreach (var fee in fees)
             {
                 if (!fee.IsSpaceLevel || fee.SpaceId == Guid.Empty) continue;
-                if (!TaxableFeeNames.Contains(fee.FeeName.Split('(')[0].Trim())) continue;
 
                 decimal feeAmount;
                 if (fee.Amount > 0m)
