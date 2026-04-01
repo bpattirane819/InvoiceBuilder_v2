@@ -57,19 +57,40 @@ namespace DataverseModel
 	}
 	
 	[System.Runtime.Serialization.DataContractAttribute()]
+	public enum WHa_Invoice_WHa_InvoiceEmailStatus
+	{
+		
+		[System.Runtime.Serialization.EnumMemberAttribute()]
+		[OptionSetMetadataAttribute("Completed", 2)]
+		Completed = 2,
+		
+		[System.Runtime.Serialization.EnumMemberAttribute()]
+		[OptionSetMetadataAttribute("In Progress", 1)]
+		InProgress = 1,
+		
+		[System.Runtime.Serialization.EnumMemberAttribute()]
+		[OptionSetMetadataAttribute("Pending", 0)]
+		Pending = 0,
+	}
+	
+	[System.Runtime.Serialization.DataContractAttribute()]
 	public enum WHa_Invoice_WHa_InvoiceStatus
 	{
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Approved", 1)]
+		[OptionSetMetadataAttribute("Approved", 2)]
 		Approved = 2,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
 		[OptionSetMetadataAttribute("Draft", 0)]
-		Draft = 1,
+		Draft = 0,
 		
 		[System.Runtime.Serialization.EnumMemberAttribute()]
-		[OptionSetMetadataAttribute("Sent", 2)]
+		[OptionSetMetadataAttribute("Reviewed", 1)]
+		Reviewed = 1,
+		
+		[System.Runtime.Serialization.EnumMemberAttribute()]
+		[OptionSetMetadataAttribute("Sent", 3)]
 		Sent = 3,
 	}
 	
@@ -123,6 +144,8 @@ namespace DataverseModel
 			public const string wha_infocenterid = "wha_infocenterid";
 			public const string wha_invoice_InvoiceFor_account = "wha_invoice_InvoiceFor_account";
 			public const string wha_InvoiceDate = "wha_invoicedate";
+			public const string wha_InvoiceEmailStatus = "wha_invoiceemailstatus";
+			public const string wha_invoiceemailstatusName = "wha_invoiceemailstatusname";
 			public const string wha_InvoiceFor = "wha_invoicefor";
 			public const string wha_InvoiceForName = "wha_invoiceforname";
 			public const string wha_InvoiceForYomiName = "wha_invoiceforyominame";
@@ -768,6 +791,38 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_invoicedate", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceemailstatus")]
+		public virtual WHa_Invoice_WHa_InvoiceEmailStatus? wha_InvoiceEmailStatus
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return ((WHa_Invoice_WHa_InvoiceEmailStatus?)(EntityOptionSetEnum.GetEnum(this, "wha_invoiceemailstatus")));
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_invoiceemailstatus", value.HasValue ? new Microsoft.Xrm.Sdk.OptionSetValue((int)value) : null);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_invoiceemailstatusname")]
+		public string wha_invoiceemailstatusName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("wha_invoiceemailstatus"))
+				{
+					return this.FormattedValues["wha_invoiceemailstatus"];
+				}
+				else
+				{
+					return default(string);
+				}
 			}
 		}
 		

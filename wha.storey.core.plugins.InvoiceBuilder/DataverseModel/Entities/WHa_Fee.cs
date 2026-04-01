@@ -94,6 +94,7 @@ namespace DataverseModel
 			public const string wha_Amount = "wha_amount";
 			public const string wha_amount_Base = "wha_amount_base";
 			public const string wha_BilledDate = "wha_billeddate";
+			public const string wha_customfilter = "wha_customfilter";
 			public const string wha_EndDate = "wha_enddate";
 			public const string wha_fee_AccountDefaultFor_account = "wha_fee_AccountDefaultFor_account";
 			public const string Referencingwha_fee_OriginatingFee_wha_fee = "wha_fee_OriginatingFee_wha_fee";
@@ -811,6 +812,21 @@ namespace DataverseModel
 			set
 			{
 				this.SetAttributeValue("wha_billeddate", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_customfilter")]
+		public string wha_customfilter
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<string>("wha_customfilter");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_customfilter", value);
 			}
 		}
 		

@@ -826,6 +826,8 @@ namespace DataverseModel
 			public const string wha_invoiceforchildrenName = "wha_invoiceforchildrenname";
 			public const string wha_locations = "wha_locations";
 			public const string wha_operator_portalurl = "wha_operator_portalurl";
+			public const string wha_Partner = "wha_partner";
+			public const string wha_partnerName = "wha_partnername";
 			public const string wha_provider_flags = "wha_provider_flags";
 			public const string wha_provider_flagsName = "wha_provider_flagsname";
 			public const string wha_PurchaseOrderNumber = "wha_purchaseordernumber";
@@ -837,6 +839,8 @@ namespace DataverseModel
 			public const string wha_spaces = "wha_spaces";
 			public const string wha_statuscode = "wha_statuscode";
 			public const string wha_statuscodeName = "wha_statuscodename";
+			public const string wha_taxexempt = "wha_taxexempt";
+			public const string wha_taxexemptName = "wha_taxexemptname";
 			public const string wha_TaxID = "wha_taxid";
 			public const string wha_Tier = "wha_tier";
 			public const string wha_wha_credit_account_wha_customerid = "wha_wha_credit_account_wha_customerid";
@@ -5253,6 +5257,41 @@ namespace DataverseModel
 			}
 		}
 		
+		/// <summary>
+		/// flag for if an operator is a provider
+		/// </summary>
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_partner")]
+		public virtual WHa_WHa_Partner? wha_Partner
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return ((WHa_WHa_Partner?)(EntityOptionSetEnum.GetEnum(this, "wha_partner")));
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_partner", value.HasValue ? new Microsoft.Xrm.Sdk.OptionSetValue((int)value) : null);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_partnername")]
+		public string wha_partnerName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("wha_partner"))
+				{
+					return this.FormattedValues["wha_partner"];
+				}
+				else
+				{
+					return default(string);
+				}
+			}
+		}
+		
 		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_provider_flags")]
 		public virtual WHa_ProviderFlags? wha_provider_flags
 		{
@@ -5389,6 +5428,38 @@ namespace DataverseModel
 				if (this.FormattedValues.Contains("wha_statuscode"))
 				{
 					return this.FormattedValues["wha_statuscode"];
+				}
+				else
+				{
+					return default(string);
+				}
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_taxexempt")]
+		public System.Nullable<bool> wha_taxexempt
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				return this.GetAttributeValue<System.Nullable<bool>>("wha_taxexempt");
+			}
+			[System.Diagnostics.DebuggerNonUserCode()]
+			set
+			{
+				this.SetAttributeValue("wha_taxexempt", value);
+			}
+		}
+		
+		[Microsoft.Xrm.Sdk.AttributeLogicalNameAttribute("wha_taxexemptname")]
+		public string wha_taxexemptName
+		{
+			[System.Diagnostics.DebuggerNonUserCode()]
+			get
+			{
+				if (this.FormattedValues.Contains("wha_taxexempt"))
+				{
+					return this.FormattedValues["wha_taxexempt"];
 				}
 				else
 				{
