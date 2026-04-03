@@ -1,8 +1,9 @@
-using System;
-using System.Collections.Generic;
 using DataverseModel;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace wha.storey.core.plugins.InvoiceBuilder
 {
@@ -18,7 +19,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             IOrganizationService svc,
             Guid accountId,
             DateTime periodStart,
-            DateTime periodEnd)
+            DateTime periodEnd, ITracingService trace = null)
         {
             var fees = new List<FeeCharge>();
             fees.AddRange(GetRecurringSpaceFees(svc, accountId, periodStart, periodEnd));
@@ -43,6 +44,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_Amount,
                     WHa_Fee.Fields.wha_FeeForId,
                     WHa_Fee.Fields.wha_PercentageofRent,
+                    WHa_Fee.Fields.wha_StartDate,
+                    WHa_Fee.Fields.wha_EndDate,
                     WHa_Fee.Fields.wha_feetemplateid),
                 Criteria = new FilterExpression(LogicalOperator.And)
             };
@@ -69,6 +72,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_MoveoutDate);
             spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.NotEqual, false); // Rented or Vacated
+
             // Include: (active AND actively rented) OR (inactive AND moving out after period starts)
             spaceLink.LinkCriteria.Filters.Add(new FilterExpression(LogicalOperator.Or)
             {
@@ -113,6 +118,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_Amount,
                     WHa_Fee.Fields.wha_FeeForId,
                     WHa_Fee.Fields.wha_PercentageofRent,
+                    WHa_Fee.Fields.wha_StartDate,
+                    WHa_Fee.Fields.wha_EndDate,
                     WHa_Fee.Fields.CreatedOn,
                     WHa_Fee.Fields.wha_feetemplateid),
                 Criteria = new FilterExpression(LogicalOperator.And)
@@ -133,7 +140,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Fee.Fields.wha_FeeForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.Inner);
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_MoveoutDate);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);               
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.NotEqual, false); // Rented or Vacated
             // Include: (active AND actively rented) OR (inactive AND moving out after period starts)
             spaceLink.LinkCriteria.Filters.Add(new FilterExpression(LogicalOperator.Or)
             {
@@ -149,6 +157,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                         Conditions =
                         {
                             new ConditionExpression(WHa_Space.Fields.wha_statuscode, ConditionOperator.NotEqual, 0),
+
                             new ConditionExpression(WHa_Space.Fields.wha_MoveoutDate, ConditionOperator.GreaterEqual, periodStart)
                         }
                     }
@@ -204,11 +213,21 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
-        private static List<FeeCharge> MapFees(EntityCollection results)
+        private static List<FeeCharge> MapFees(EntityCollection results, ITracingService trace = null)
         {
             var fees = new List<FeeCharge>(results.Entities.Count);
             foreach (var e in results.Entities)
             {
+
+                var feeNameDebug = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? null;
+                if(feeNameDebug == "279352")
+                {
+                    trace?.Trace($"Bad Fee");
+                    var isProposedSpace = ((OptionSetValue)e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_isrentedcode)?.Value)?.Value;
+                }
+                
+
+
                 var amount = e.GetAttributeValue<Money>(WHa_Fee.Fields.wha_Amount)?.Value;
                 var pct    = e.GetAttributeValue<decimal?>(WHa_Fee.Fields.wha_PercentageofRent);
                 if (!amount.HasValue && !pct.HasValue) continue;
@@ -238,7 +257,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     FeeName          = feeName,
                     IsSpaceLevel     = isSpaceLevel,
                     SpaceName        = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,
-                    SpaceUnitName    = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null
+                    SpaceUnitName    = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string : null,
+                    IsRentedCode     = isSpaceLevel ? (e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_isrentedcode)?.Value as OptionSetValue)?.Value ?? 0 : 0,
+                    FeeStartDate     = e.GetAttributeValue<DateTime?>(WHa_Fee.Fields.wha_StartDate),
+                    FeeEndDate       = e.GetAttributeValue<DateTime?>(WHa_Fee.Fields.wha_EndDate),
+                    CreatedOn        = e.GetAttributeValue<DateTime?>(WHa_Fee.Fields.CreatedOn)
                 });
             }
             return fees;

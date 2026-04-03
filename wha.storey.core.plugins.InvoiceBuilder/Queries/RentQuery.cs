@@ -104,7 +104,9 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     FacilityId = e.GetAttributeValue<EntityReference>(WHa_Facility.Fields.wha_FacilityId)?.Id ?? Guid.Empty,
                     SpaceName = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string ?? "",
                     UnitName = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_UnitName)?.Value as string ?? "",
-                    SpaceMoveOutDate = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_MoveoutDate)?.Value as DateTime? ?? DateTime.MaxValue
+                    SpaceMoveOutDate = e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_MoveoutDate)?.Value as DateTime? ?? DateTime.MaxValue,
+                    RentStartDate = e.GetAttributeValue<DateTime?>(WHa_Rent.Fields.wha_StartDate),
+                    RentEndDate = e.GetAttributeValue<DateTime?>(WHa_Rent.Fields.wha_EndDate)
                 });
             }
 

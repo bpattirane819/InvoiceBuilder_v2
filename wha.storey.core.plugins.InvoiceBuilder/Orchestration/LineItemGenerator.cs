@@ -36,11 +36,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             // 2. Fees
             // Load fees after rents so percentage-of-rent fees can be converted to actual amounts
             var fees = FeeQuery.GetFees(svc, accountId, periodStart, periodEnd);
-            // index rents by space for quick lookup when calculating percentage fees
-            var rentBySpace = new Dictionary<Guid, RentCharge>();
+            // Store ALL rents (not just one per space) to handle rent changes during the billing period.
+            // Later, match each fee to the rent(s) that overlap with the fee's effective date.
+            var rentsBySpace = new Dictionary<Guid, List<RentCharge>>();
             foreach (var r in rents)
-                if (r.SpaceId != Guid.Empty)
-                    rentBySpace[r.SpaceId] = r;
+            {
+                if (r.SpaceId == Guid.Empty) continue;
+                if (!rentsBySpace.ContainsKey(r.SpaceId))
+                    rentsBySpace[r.SpaceId] = new List<RentCharge>();
+                rentsBySpace[r.SpaceId].Add(r);
+            }
 
             foreach (var fee in fees)
             {
@@ -51,23 +56,37 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 // compute the actual dollar amount using the space's rent.
                 if (amountToUse == 0m && fee.PercentageOfRent > 0m && fee.IsSpaceLevel && fee.SpaceId != Guid.Empty)
                 {
-                    if (rentBySpace.TryGetValue(fee.SpaceId, out var rentForPct))
+                    if (rentsBySpace.TryGetValue(fee.SpaceId, out var spacerents))
                     {
-                        // PercentageOfRent is stored as a decimal fraction (e.g. 0.05 for 5%).
-                        var computed = fee.PercentageOfRent * rentForPct.Amount;
-                        amountToUse = Math.Round(computed, 2, MidpointRounding.AwayFromZero);
-                        // Persist computed amount back to the model so downstream logic sees it
-                        fee.Amount = amountToUse;
+                        // Find the rent that overlaps with the fee's effective date.
+                        // For recurring fees: use the fee's StartDate/EndDate range.
+                        // For one-time fees: use the CreatedOn date as a point in time.
+                        var feeEffectiveStart = fee.FeeStartDate ?? fee.CreatedOn ?? periodStart;
+                        var feeEffectiveEnd = fee.FeeEndDate ?? fee.CreatedOn ?? periodEnd;
 
-                        // Update the fee record in Dataverse so plugins can read the computed amount
-                        var feeUpdate = new Entity(WHa_Fee.EntityLogicalName) { Id = fee.FeeId };
-                        feeUpdate[WHa_Fee.Fields.wha_Amount] = new Money(amountToUse);
-                        svc.Update(feeUpdate);
+                        var matchingRent = FindOverlappingRent(spacerents, feeEffectiveStart, feeEffectiveEnd, trace);
+                        if (matchingRent != null)
+                        {
+                            // PercentageOfRent is stored as a decimal fraction (e.g. 0.05 for 5%).
+                            var computed = fee.PercentageOfRent * matchingRent.Amount;
+                            amountToUse = Math.Round(computed, 2, MidpointRounding.AwayFromZero);
+                            // Persist computed amount back to the model so downstream logic sees it
+                            fee.Amount = amountToUse;
 
-                        if (amountToUse == 0m)
-                            trace?.Trace($"[Fee] Computed percentage fee {fee.FeeId} for space {fee.SpaceId} produced 0.00 (pct={fee.PercentageOfRent}, rent={rentForPct.Amount})");
+                            // Update the fee record in Dataverse so plugins can read the computed amount
+                            var feeUpdate = new Entity(WHa_Fee.EntityLogicalName) { Id = fee.FeeId };
+                            feeUpdate[WHa_Fee.Fields.wha_Amount] = new Money(amountToUse);
+                            svc.Update(feeUpdate);
+
+                            if (amountToUse == 0m)
+                                trace?.Trace($"[Fee] Computed percentage fee {fee.FeeId} for space {fee.SpaceId} produced 0.00 (pct={fee.PercentageOfRent}, rent={matchingRent.Amount})");
+                            else
+                                trace?.Trace($"[Fee] Updated percentage fee {fee.FeeId} to {amountToUse:C} using rent from {matchingRent.RentId:D} (pct={fee.PercentageOfRent}, rent={matchingRent.Amount})");
+                        }
                         else
-                            trace?.Trace($"[Fee] Updated percentage fee {fee.FeeId} to {amountToUse:C} (pct={fee.PercentageOfRent}, rent={rentForPct.Amount})");
+                        {
+                            trace?.Trace($"[Fee] Percentage fee {fee.FeeId} for space {fee.SpaceId} has no overlapping rent — amount will be 0.00");
+                        }
                     }
                     else
                     {
@@ -106,7 +125,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             if (taxRates.Count > 0)
             {
-                var taxItems = BuildTaxLineItems(invoiceId, currency, rents, fees, taxRates, trace);
+                var taxItems = BuildTaxLineItems(invoiceId, currency, rents, fees, taxRates, rentsBySpace, trace);
                 trace?.Trace($"[Tax] Tax line items generated: {taxItems.Count}");
                 items.AddRange(taxItems);
             }
@@ -116,6 +135,36 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             }
 
             return items;
+        }
+
+        /// <summary>
+        /// Finds a rent that overlaps with the given date range.
+        /// Date overlap is: rent.RentStartDate &lt;= dateEnd AND (rent.RentEndDate IS NULL OR rent.RentEndDate &gt;= dateStart)
+        /// If multiple rents overlap, prefer the one with the latest RentStartDate (most recent).
+        /// </summary>
+        private static RentCharge FindOverlappingRent(
+            List<RentCharge> rents,
+            DateTime dateStart,
+            DateTime dateEnd,
+            ITracingService trace = null)
+        {
+            RentCharge best = null;
+            foreach (var rent in rents)
+            {
+                // Check date overlap: rent applies if its StartDate is on/before dateEnd
+                // and either has no EndDate or EndDate is on/after dateStart
+                if (rent.RentStartDate.HasValue && rent.RentStartDate.Value <= dateEnd)
+                {
+                    var rentEndDate = rent.RentEndDate ?? DateTime.MaxValue;
+                    if (rentEndDate >= dateStart)
+                    {
+                        // This rent overlaps. Prefer the most recent one (latest StartDate).
+                        if (best == null || rent.RentStartDate > best.RentStartDate)
+                            best = rent;
+                    }
+                }
+            }
+            return best;
         }
 
         private static WHa_InvoiceLineItem Build(
@@ -182,6 +231,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             IReadOnlyList<RentCharge> rents,
             IReadOnlyList<FeeCharge> fees,
             Dictionary<string, decimal> taxRates,
+            Dictionary<Guid, List<RentCharge>> rentsBySpace,
             ITracingService trace = null)
         {
             // Index rents by SpaceId — only spaces with a known zip can be taxed
@@ -196,7 +246,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 
             // Sum qualifying fee amounts per space.
             // Fixed fees: use Amount directly.
-            // Percentage-of-rent fees: compute against the space's rent amount.
+            // Percentage-of-rent fees: use the pre-computed Amount if available, or compute against matching rent.
             var taxableFeesBySpace = new Dictionary<Guid, decimal>();
             foreach (var fee in fees)
             {
@@ -207,9 +257,17 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 {
                     feeAmount = fee.Amount;
                 }
-                else if (fee.PercentageOfRent > 0m && rentBySpace.TryGetValue(fee.SpaceId, out var rentForPct))
+                else if (fee.PercentageOfRent > 0m && rentsBySpace.TryGetValue(fee.SpaceId, out var spacerents))
                 {
-                    feeAmount = fee.PercentageOfRent * rentForPct.Amount;
+                    // Try to find matching rent using the same date-overlap logic
+                    var feeEffectiveStart = fee.FeeStartDate ?? fee.CreatedOn ?? DateTime.MinValue;
+                    var feeEffectiveEnd = fee.FeeEndDate ?? fee.CreatedOn ?? DateTime.MaxValue;
+                    var matchingRent = FindOverlappingRent(spacerents, feeEffectiveStart, feeEffectiveEnd, trace);
+                    if (matchingRent != null)
+                    {
+                        feeAmount = fee.PercentageOfRent * matchingRent.Amount;
+                    }
+                    else continue;
                 }
                 else continue;
 
