@@ -24,7 +24,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             var items = new List<WHa_InvoiceLineItem>();
 
             // 1. Rents
-            var rents = RentQuery.GetRents(svc, accountId, periodStart, periodEnd);
+            var rents = RentQuery.GetRents(svc, accountId, periodStart, periodEnd, trace);
             foreach (var rent in rents)
             {
                 if (rent.RentId == Guid.Empty) continue;
@@ -191,7 +191,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 if (rent.SpaceId != Guid.Empty && !string.IsNullOrWhiteSpace(rent.FacilityZipCode))
                     rentBySpace[rent.SpaceId] = rent;
                 else
-                    trace?.Trace($"[Tax] Skipping space {rent.SpaceId} — no facility zip code (facility may be missing zip)");
+                    trace?.Trace($"[Tax] Skipping space {rent.SpaceId} — no facility zip code (facility may be missing zip)  {rent.FacilityId}");
             }
 
             // Sum qualifying fee amounts per space.

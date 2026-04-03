@@ -6,12 +6,16 @@ namespace wha.storey.core.plugins.InvoiceBuilder
     {
         public Guid    RentId          { get; set; }
         public Guid    SpaceId         { get; set; }
+        public Guid FacilityId { get; set; }
         public decimal Amount          { get; set; }
+        public bool SpaceIsRentedCode { get; set; }
+        public int SpaceStatusCode { get; set; }
         public string  RentName        { get; set; } = "";
         public string  FacilityName    { get; set; } = "";
         public string  FacilityZipCode { get; set; } = "";
         public string  SpaceName       { get; set; } = "";
         public string  UnitName        { get; set; } = "";
+        public DateTime SpaceMoveOutDate { get; set; }
     }
 
     internal sealed class FeeCharge

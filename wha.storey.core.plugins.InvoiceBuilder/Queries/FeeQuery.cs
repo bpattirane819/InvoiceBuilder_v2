@@ -8,8 +8,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
 {
     /// <summary>
     /// Fetches fees for the account and its spaces.
-    /// <para>Space recurring fees: INNER JOIN on wha_space (active spaces only, status=1), date overlap.</para>
-    /// <para>Space one-time fees: INNER JOIN on wha_space (all spaces), StartDate/EndDate null, createdon within billing period.</para>
+    /// <para>Space recurring fees: INNER JOIN on wha_space (active spaces or moving out after period start), date overlap.</para>
+    /// <para>Space one-time fees: INNER JOIN on wha_space (active spaces or moving out after period start), StartDate/EndDate null, createdon within billing period.</para>
     /// <para>Account fees: wha_feeforid = accountId, wha_feelevel = 1000, date overlap. Charged once per invoice.</para>
     /// </summary>
     internal static class FeeQuery
@@ -27,7 +27,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return fees;
         }
 
-        // Recurring space-level fees: active spaces only (status=1), date overlap.
+        // Recurring space-level fees: active spaces or spaces moving out after period start, date overlap.
         // INNER JOIN ensures wha_feeforid points to a space (not an account).
         private static IReadOnlyList<FeeCharge> GetRecurringSpaceFees(
             IOrganizationService svc,
@@ -42,7 +42,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_Name,
                     WHa_Fee.Fields.wha_Amount,
                     WHa_Fee.Fields.wha_FeeForId,
-                    WHa_Fee.Fields.wha_PercentageofRent),
+                    WHa_Fee.Fields.wha_PercentageofRent,
+                    WHa_Fee.Fields.wha_feetemplateid),
                 Criteria = new FilterExpression(LogicalOperator.And)
             };
 
@@ -58,13 +59,36 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 }
             });
 
-            // INNER JOIN: scopes to space-level fees only; active spaces for this account
+            // LEFT JOIN: fee template for fee name fallback
+            var templateLink = qe.AddLink(WHa_FeeTemplate.EntityLogicalName, WHa_Fee.Fields.wha_feetemplateid, WHa_FeeTemplate.Fields.wha_FeeTemplateId, JoinOperator.LeftOuter);
+            templateLink.EntityAlias = "ft";
+            templateLink.Columns     = new ColumnSet(WHa_FeeTemplate.Fields.wha_TemplateName);
+
+            // INNER JOIN: scopes to space-level fees only; active spaces or spaces moving out after period starts
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Fee.Fields.wha_FeeForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.Inner);
             spaceLink.EntityAlias = "sp";
-            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy,    ConditionOperator.Equal, accountId);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true); // true = Actively rented
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0);  // 0 = Active
+            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_MoveoutDate);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+            // Include: (active AND actively rented) OR (inactive AND moving out after period starts)
+            spaceLink.LinkCriteria.Filters.Add(new FilterExpression(LogicalOperator.Or)
+            {
+                Conditions =
+                {
+                    new ConditionExpression(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0),
+                    new ConditionExpression(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true)
+                },
+                Filters =
+                {
+                    new FilterExpression(LogicalOperator.And)
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression(WHa_Space.Fields.wha_statuscode, ConditionOperator.NotEqual, 0),
+                            new ConditionExpression(WHa_Space.Fields.wha_MoveoutDate, ConditionOperator.GreaterEqual, periodStart)
+                        }
+                    }
+                }
+            });
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";
@@ -73,7 +97,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
-        // One-time space-level fees: active spaces only (status=1), created within billing period.
+        // One-time space-level fees: active spaces or spaces moving out after period start, created within billing period.
         // INNER JOIN ensures wha_feeforid points to a space (not an account).
         private static IReadOnlyList<FeeCharge> GetOneTimeSpaceFees(
             IOrganizationService svc,
@@ -89,7 +113,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_Amount,
                     WHa_Fee.Fields.wha_FeeForId,
                     WHa_Fee.Fields.wha_PercentageofRent,
-                    WHa_Fee.Fields.CreatedOn),
+                    WHa_Fee.Fields.CreatedOn,
+                    WHa_Fee.Fields.wha_feetemplateid),
                 Criteria = new FilterExpression(LogicalOperator.And)
             };
 
@@ -99,13 +124,36 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             qe.Criteria.AddCondition(WHa_Fee.Fields.CreatedOn,     ConditionOperator.GreaterEqual, periodStart);
             qe.Criteria.AddCondition(WHa_Fee.Fields.CreatedOn,     ConditionOperator.LessEqual,    periodEnd);
 
-            // INNER JOIN: scopes to space-level fees only; active spaces for this account
+            // LEFT JOIN: fee template for fee name fallback
+            var templateLink = qe.AddLink(WHa_FeeTemplate.EntityLogicalName, WHa_Fee.Fields.wha_feetemplateid, WHa_FeeTemplate.Fields.wha_FeeTemplateId, JoinOperator.LeftOuter);
+            templateLink.EntityAlias = "ft";
+            templateLink.Columns     = new ColumnSet(WHa_FeeTemplate.Fields.wha_TemplateName);
+
+            // INNER JOIN: scopes to space-level fees only; active spaces or spaces moving out after period starts
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Fee.Fields.wha_FeeForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.Inner);
             spaceLink.EntityAlias = "sp";
-            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy,    ConditionOperator.Equal, accountId);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true); // true = Actively rented
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0);  // 0 = Active
+            spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_MoveoutDate);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+            // Include: (active AND actively rented) OR (inactive AND moving out after period starts)
+            spaceLink.LinkCriteria.Filters.Add(new FilterExpression(LogicalOperator.Or)
+            {
+                Conditions =
+                {
+                    new ConditionExpression(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0),
+                    new ConditionExpression(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true)
+                },
+                Filters =
+                {
+                    new FilterExpression(LogicalOperator.And)
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression(WHa_Space.Fields.wha_statuscode, ConditionOperator.NotEqual, 0),
+                            new ConditionExpression(WHa_Space.Fields.wha_MoveoutDate, ConditionOperator.GreaterEqual, periodStart)
+                        }
+                    }
+                }
+            });
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";
@@ -128,7 +176,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     WHa_Fee.Fields.wha_FeeId,
                     WHa_Fee.Fields.wha_Name,
                     WHa_Fee.Fields.wha_Amount,
-                    WHa_Fee.Fields.wha_FeeForId),
+                    WHa_Fee.Fields.wha_FeeForId,
+                    WHa_Fee.Fields.wha_feetemplateid),
                 Criteria = new FilterExpression(LogicalOperator.And)
             };
 
@@ -147,6 +196,11 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 }
             });
 
+            // LEFT JOIN: fee template for fee name fallback
+            var templateLink = qe.AddLink(WHa_FeeTemplate.EntityLogicalName, WHa_Fee.Fields.wha_feetemplateid, WHa_FeeTemplate.Fields.wha_FeeTemplateId, JoinOperator.LeftOuter);
+            templateLink.EntityAlias = "ft";
+            templateLink.Columns     = new ColumnSet(WHa_FeeTemplate.Fields.wha_TemplateName);
+
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
@@ -163,7 +217,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 var isSpaceLevel = feeForRef != null &&
                     string.Equals(feeForRef.LogicalName, WHa_Space.EntityLogicalName, StringComparison.OrdinalIgnoreCase);
 
-                var feeName = e.GetAttributeValue<string>(WHa_Fee.Fields.wha_Name) ?? "";
+                // Use template name directly as the fee name
+                var feeName = e.GetAttributeValue<AliasedValue>("ft." + WHa_FeeTemplate.Fields.wha_TemplateName)?.Value as string ?? "";
                 decimal normalizedPct = 0m;
                 if (!amount.HasValue && pct.HasValue)
                 {

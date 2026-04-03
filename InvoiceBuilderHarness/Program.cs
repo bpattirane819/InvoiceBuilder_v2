@@ -46,7 +46,7 @@ class Program
 
         Console.WriteLine("Connected to Dataverse");
 
-        Guid companyGuid = Guid.Parse("fa1fa912-b019-f111-8341-000d3a5aec54");
+        Guid companyGuid = Guid.Parse("2020a912-b019-f111-8341-000d3a5aec54");
 
 
         //TEST INPUTS — change these to test different accounts/month
