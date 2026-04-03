@@ -226,7 +226,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 var invoiceId = existing.Entities[0].Id;
 
                 var update = new Entity(WHa_Invoice.EntityLogicalName) { Id = invoiceId };
-                update[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
+                update[WHa_Invoice.Fields.wha_InvoiceDate] = new DateTime(invoiceDate.Year, invoiceDate.Month, invoiceDate.Day, 12, 0, 0, DateTimeKind.Utc);
                 var cleanDueDate = GetDueDate(svc, accountId, invoiceDate);
                 if (cleanDueDate.HasValue) update[WHa_Invoice.Fields.wha_DueDate] = cleanDueDate.Value;
                 svc.Update(update);
@@ -276,7 +276,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         {
             var invoice = new Entity(WHa_Invoice.EntityLogicalName);
             invoice[WHa_Invoice.Fields.wha_InvoiceFor]  = new EntityReference("account", accountId);
-            invoice[WHa_Invoice.Fields.wha_InvoiceDate] = invoiceDate;
+            invoice[WHa_Invoice.Fields.wha_InvoiceDate] = new DateTime(invoiceDate.Year, invoiceDate.Month, invoiceDate.Day, 12, 0, 0, DateTimeKind.Utc);
             if (currency != null) invoice["transactioncurrencyid"] = currency;
 
             var dueDate = GetDueDate(svc, accountId, invoiceDate);

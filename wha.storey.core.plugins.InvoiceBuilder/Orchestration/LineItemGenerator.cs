@@ -23,17 +23,64 @@ namespace wha.storey.core.plugins.InvoiceBuilder
         {
             var items = new List<WHa_InvoiceLineItem>();
 
-            // 1. Fees
+            // 1. Rents
+            var rents = RentQuery.GetRents(svc, accountId, periodStart, periodEnd);
+            foreach (var rent in rents)
+            {
+                if (rent.RentId == Guid.Empty) continue;
+                items.Add(Build(invoiceId, currency,
+                    WHa_Rent.EntityLogicalName, rent.RentId, BuildName(rent.FacilityName, rent.UnitName),
+                    rent.Amount, rent.SpaceName, rent.UnitName));
+            }
+
+            // 2. Fees
+            // Load fees after rents so percentage-of-rent fees can be converted to actual amounts
             var fees = FeeQuery.GetFees(svc, accountId, periodStart, periodEnd);
+            // index rents by space for quick lookup when calculating percentage fees
+            var rentBySpace = new Dictionary<Guid, RentCharge>();
+            foreach (var r in rents)
+                if (r.SpaceId != Guid.Empty)
+                    rentBySpace[r.SpaceId] = r;
+
             foreach (var fee in fees)
             {
                 if (fee.FeeId == Guid.Empty) continue;
+
+                decimal amountToUse = fee.Amount;
+                // If this fee is defined as a percentage of rent and applies at space level,
+                // compute the actual dollar amount using the space's rent.
+                if (amountToUse == 0m && fee.PercentageOfRent > 0m && fee.IsSpaceLevel && fee.SpaceId != Guid.Empty)
+                {
+                    if (rentBySpace.TryGetValue(fee.SpaceId, out var rentForPct))
+                    {
+                        // PercentageOfRent is stored as a decimal fraction (e.g. 0.05 for 5%).
+                        var computed = fee.PercentageOfRent * rentForPct.Amount;
+                        amountToUse = Math.Round(computed, 2, MidpointRounding.AwayFromZero);
+                        // Persist computed amount back to the model so downstream logic sees it
+                        fee.Amount = amountToUse;
+
+                        // Update the fee record in Dataverse so plugins can read the computed amount
+                        var feeUpdate = new Entity(WHa_Fee.EntityLogicalName) { Id = fee.FeeId };
+                        feeUpdate[WHa_Fee.Fields.wha_Amount] = new Money(amountToUse);
+                        svc.Update(feeUpdate);
+
+                        if (amountToUse == 0m)
+                            trace?.Trace($"[Fee] Computed percentage fee {fee.FeeId} for space {fee.SpaceId} produced 0.00 (pct={fee.PercentageOfRent}, rent={rentForPct.Amount})");
+                        else
+                            trace?.Trace($"[Fee] Updated percentage fee {fee.FeeId} to {amountToUse:C} (pct={fee.PercentageOfRent}, rent={rentForPct.Amount})");
+                    }
+                    else
+                    {
+                        trace?.Trace($"[Fee] Percentage fee {fee.FeeId} references space {fee.SpaceId} but no rent was found — amount will be 0.00");
+                    }
+                }
+
                 items.Add(Build(invoiceId, currency,
                     WHa_Fee.EntityLogicalName, fee.FeeId, BuildFeeName(fee.FeeName, fee.IsSpaceLevel, fee.SpaceUnitName),
-                    fee.Amount, fee.SpaceName, fee.SpaceUnitName));
+                    amountToUse, fee.SpaceName, fee.SpaceUnitName));
             }
 
-            // 2. Discounts (stored as positive — subtracted at reporting time)
+            // 3. Discounts (stored as positive — subtracted at reporting time)
             foreach (var d in DiscountQuery.GetDiscounts(svc, accountId, periodStart, periodEnd))
             {
                 if (d.DiscountId == Guid.Empty) continue;
@@ -51,15 +98,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     credit.Amount, null, null));
             }
 
-            // 4. Rents
-            var rents = RentQuery.GetRents(svc, accountId, periodStart, periodEnd);
-            foreach (var rent in rents)
-            {
-                if (rent.RentId == Guid.Empty) continue;
-                items.Add(Build(invoiceId, currency,
-                    WHa_Rent.EntityLogicalName, rent.RentId, BuildName(rent.FacilityName, rent.UnitName),
-                    rent.Amount, rent.SpaceName, rent.UnitName));
-            }
+
 
             // 5. Taxes — 1 line item per taxable space
             var taxRates = TaxQuery.GetTaxRateByZipCode(svc);
@@ -170,7 +209,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                 }
                 else if (fee.PercentageOfRent > 0m && rentBySpace.TryGetValue(fee.SpaceId, out var rentForPct))
                 {
-                    feeAmount = fee.PercentageOfRent / 100m * rentForPct.Amount;
+                    feeAmount = fee.PercentageOfRent * rentForPct.Amount;
                 }
                 else continue;
 

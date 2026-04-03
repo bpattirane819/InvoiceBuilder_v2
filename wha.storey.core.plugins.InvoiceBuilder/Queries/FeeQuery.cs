@@ -63,7 +63,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
             spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy,    ConditionOperator.Equal, accountId);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_SpaceStatus, ConditionOperator.Equal, 1); // 1 = Rented
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true); // true = Actively rented
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0);  // 0 = Active
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";
@@ -72,7 +73,7 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             return MapFees(svc.RetrieveMultiple(qe));
         }
 
-        // One-time space-level fees: all spaces (including vacated), created within billing period.
+        // One-time space-level fees: active spaces only (status=1), created within billing period.
         // INNER JOIN ensures wha_feeforid points to a space (not an account).
         private static IReadOnlyList<FeeCharge> GetOneTimeSpaceFees(
             IOrganizationService svc,
@@ -98,11 +99,13 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             qe.Criteria.AddCondition(WHa_Fee.Fields.CreatedOn,     ConditionOperator.GreaterEqual, periodStart);
             qe.Criteria.AddCondition(WHa_Fee.Fields.CreatedOn,     ConditionOperator.LessEqual,    periodEnd);
 
-            // INNER JOIN: scopes to space-level fees only; all spaces (including vacated) for this account
+            // INNER JOIN: scopes to space-level fees only; active spaces for this account
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Fee.Fields.wha_FeeForId, WHa_Space.Fields.wha_SpaceId, JoinOperator.Inner);
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName);
-            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy, ConditionOperator.Equal, accountId);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_RentedBy,    ConditionOperator.Equal, accountId);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true); // true = Actively rented
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0);  // 0 = Active
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";
@@ -161,15 +164,22 @@ namespace wha.storey.core.plugins.InvoiceBuilder
                     string.Equals(feeForRef.LogicalName, WHa_Space.EntityLogicalName, StringComparison.OrdinalIgnoreCase);
 
                 var feeName = e.GetAttributeValue<string>(WHa_Fee.Fields.wha_Name) ?? "";
+                decimal normalizedPct = 0m;
                 if (!amount.HasValue && pct.HasValue)
-                    feeName = $"{feeName} ({pct.Value.ToString("0.##")}%)";
+                {
+                    // Normalize percentage value to a decimal fraction (e.g. 5 -> 0.05, 0.05 -> 0.05)
+                    normalizedPct = pct.Value > 1m ? pct.Value / 100m : pct.Value;
+                    // Display as a percentage (e.g. 5%)
+                    feeName = $"{feeName} ({(normalizedPct * 100m).ToString("0.##")}%)";
+                }
+
 
                 fees.Add(new FeeCharge
                 {
                     FeeId            = e.Id,
                     SpaceId          = isSpaceLevel ? (feeForRef?.Id ?? Guid.Empty) : Guid.Empty,
                     Amount           = amount ?? 0m,
-                    PercentageOfRent = pct ?? 0m,
+                    PercentageOfRent = normalizedPct != 0m ? normalizedPct : (pct ?? 0m),
                     FeeName          = feeName,
                     IsSpaceLevel     = isSpaceLevel,
                     SpaceName        = isSpaceLevel ? e.GetAttributeValue<AliasedValue>("sp." + WHa_Space.Fields.wha_SpaceName)?.Value as string : null,

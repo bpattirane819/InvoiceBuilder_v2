@@ -46,7 +46,7 @@ class Program
 
         Console.WriteLine("Connected to Dataverse");
 
-        Guid companyGuid = Guid.Parse("be582553-bdf6-f011-8406-000d3a1b93dd");
+        Guid companyGuid = Guid.Parse("fa1fa912-b019-f111-8341-000d3a5aec54");
 
 
         //TEST INPUTS — change these to test different accounts/month
@@ -57,7 +57,7 @@ class Program
         //Guid companyGuid = Guid.Parse("5ddf8eca-da07-f111-8406-000d3a573438");//Abbvie Test
         //Guid companyGuid = Guid.Parse("0b62dcca-da07-f111-8407-6045bdd8cf45");//Aclaris Test
         //Guid companyGuid = Guid.Parse("e2bc87ca-da07-f111-8407-6045bdd8c4a0");//zABC
-        var  dateRun        = new DateTime(2026, 12, 04);  // any date within the target month
+        var  dateRun        = new DateTime(2026, 4, 5);  // any date within the target month
         bool simulatePlugin = true;   // true = full run (creates invoice, dedup, generate, write)
                                       // false = dry run (generate and print only, no writes)
         bool batchMode      = false;  // true = run all accounts (customertypecode=3, wha_statuscode=0)

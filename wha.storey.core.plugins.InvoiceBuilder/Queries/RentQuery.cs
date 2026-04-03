@@ -7,7 +7,7 @@ using Microsoft.Xrm.Sdk.Query;
 namespace wha.storey.core.plugins.InvoiceBuilder
 {
     /// <summary>
-    /// Fetches all rents active during the billing period for the customer.
+    /// Fetches all rents active during the billing period for the customer on active spaces only (status=1).
     /// Uses wha_customerid as the direct entry point — no N+1 space queries.
     /// LEFT JOINs wha_space to get SpaceName/UnitName in the same round trip.
     /// <para>Date overlap: StartDate &lt;= periodEnd AND (EndDate IS NULL OR EndDate &gt;= periodStart).</para>
@@ -55,6 +55,8 @@ namespace wha.storey.core.plugins.InvoiceBuilder
             var spaceLink = qe.AddLink(WHa_Space.EntityLogicalName, WHa_Rent.Fields.wha_Space, WHa_Space.Fields.wha_SpaceId, JoinOperator.LeftOuter);
             spaceLink.EntityAlias = "sp";
             spaceLink.Columns     = new ColumnSet(WHa_Space.Fields.wha_SpaceName, WHa_Space.Fields.wha_UnitName, WHa_Space.Fields.wha_facilityid);
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_isrentedcode, ConditionOperator.Equal, true); // true = Actively rented
+            spaceLink.LinkCriteria.AddCondition(WHa_Space.Fields.wha_statuscode, ConditionOperator.Equal, 0);    // 0 = Active
 
             var facilityLink = spaceLink.AddLink(WHa_Facility.EntityLogicalName, WHa_Space.Fields.wha_facilityid, WHa_Facility.Fields.wha_FacilityId, JoinOperator.LeftOuter);
             facilityLink.EntityAlias = "fa";

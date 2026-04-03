@@ -62,7 +62,7 @@ var InvoiceCommands = InvoiceCommands || {};
               throw new Error(err.error ? err.error.message : response.statusText);
           }
 
-          await Xrm.Navigation.openAlertDialog({ text: "Line items regenerated successfully." });
+          await Xrm.Navigation.openAlertDialog({ text: "Line items are generating. Check back in a couple of minutes." });
           formContext.data.refresh(true);
       } catch (e) {
           Xrm.Utility.closeProgressIndicator();
